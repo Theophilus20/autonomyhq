@@ -111,9 +111,10 @@ async function stop(agentId) {
 // everyone stands up (idle/walk) while the swarm deliberates, then returns.
 const workTimers = {};
 let inMeeting = false;
+let swarmPaused = false;
 function startWork(id) {
   stopWork(id);
-  const tick = async () => { if (!inMeeting) { try { await toolCycle(id, "work_at_desk", 6000); } catch (e) {} } };
+  const tick = async () => { if (!inMeeting && !swarmPaused) { try { await toolCycle(id, "work_at_desk", 6000); } catch (e) {} } };
   tick();
   workTimers[id] = setInterval(tick, 8000);
 }
@@ -127,6 +128,16 @@ const TOOL_FOR = {
 
 async function handle(evt) {
   switch (evt.type) {
+    case "SWARM_PAUSED": {
+      swarmPaused = true; inMeeting = false;
+      for (const id of Object.keys(SESS)) { try { await stop(id); await say(id, "paused"); } catch (e) {} }
+      break;
+    }
+    case "SWARM_RESUMED": {
+      swarmPaused = false;
+      for (const id of Object.keys(SESS)) { try { await say(id, "back to work"); } catch (e) {} }
+      break;
+    }
     case "MEETING_STARTED": {
       // meeting: everyone STANDS UP from their computer and gathers
       inMeeting = true;

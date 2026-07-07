@@ -99,6 +99,11 @@ td{padding:9px 8px;border-bottom:1px solid var(--mute);vertical-align:top}
       <a data-v="feedback"><svg width="15" height="15" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.2"><path d="M21 11.5c0 4.1-4 7.5-9 7.5-1 0-2-.13-2.9-.38L4 20l1.3-3.1C3.9 15.6 3 13.6 3 11.5 3 7.4 7 4 12 4s9 3.4 9 7.5z"/></svg>Feedback <span id="fbBadge" style="display:none;margin-left:auto;background:var(--amber);color:#fff;border-radius:9px;font-size:9px;padding:1px 6px;font-family:var(--mono)">0</span></a>
     </div>
     <div class="spacer"></div>
+    <div style="display:flex;gap:8px;justify-content:center;padding:6px 0">
+      <a href="https://x.com/autonomyhqxyz" target="_blank" title="Follow on X" style="border:2px solid var(--bd);border-radius:8px;padding:7px;background:var(--card);box-shadow:2px 2px 0 var(--sh);display:grid;place-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
+      <a href="https://www.instagram.com/autonomyhqxyz/" target="_blank" title="Instagram" style="border:2px solid var(--bd);border-radius:8px;padding:7px;background:var(--card);box-shadow:2px 2px 0 var(--sh);display:grid;place-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.6" cy="6.4" r="1.3" fill="currentColor" stroke="none"/></svg></a>
+      <a href="mailto:autonomyhq00@gmail.com" target="_blank" title="Support" style="border:2px solid var(--bd);border-radius:8px;padding:7px;background:var(--card);box-shadow:2px 2px 0 var(--sh);display:grid;place-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M3 7l9 6.5L21 7"/></svg></a>
+    </div>
     <div class="toggle" onclick="flip()"><svg width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.2"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg><span id="tlabel">DARK MODE</span></div>
   </div>
 
@@ -190,7 +195,11 @@ $('nav').addEventListener('click',e=>{const a=e.target.closest('a');if(!a)return
   $('view-'+a.dataset.v).classList.add('on');$('vtitle').textContent=TITLES[a.dataset.v];
   if(a.dataset.v==='x402')refreshLedger();if(a.dataset.v==='onchain'){loadRecorded().then(()=>renderChain());fetch(RECORDER+'/chain/recorded').then(()=>$('recStatus').innerHTML='recorder <span class="ok">● ONLINE</span>').catch(()=>$('recStatus').innerHTML='recorder <span style="color:var(--red)">● OFFLINE — start Terminal RECORDER</span>');}if(a.dataset.v==='agents')renderAgents();if(a.dataset.v==='feedback'){fbUnread=0;updateFbBadge();renderFeedback();}});
 /* state */
-let approvals=0,proposals=[],lastReason={},feedbacks=[],fbUnread=0,recordedMap={},autonomous=true;
+let approvals=0,proposals=[],lastReason={},feedbacks=[],fbUnread=0,recordedMap={},autonomous=true,ledgerCache=[];
+try{const c=JSON.parse(localStorage.getItem('ahq')||'{}');
+  proposals=c.proposals||[];recordedMap=c.recordedMap||{};
+  feedbacks=c.feedbacks||[];ledgerCache=c.ledger||[];}catch(e){}
+function persist(){try{localStorage.setItem('ahq',JSON.stringify({proposals:proposals.slice(0,50),recordedMap,feedbacks:feedbacks.slice(0,60),ledger:ledgerCache.slice(-80)}));}catch(e){}}
 const AG=[{id:'risk-agent-01',name:'Risk',role:'Analyzes volatility and pool depth before any move.'},
  {id:'lc-agent-01',name:'Compliance',role:'Checks asset whitelist and KYC/ZK identity.'},
  {id:'treasury-agent-01',name:'Treasury',role:'Checks headroom, signs and broadcasts on Casper.'}];
@@ -223,11 +232,11 @@ function handle(e){switch(e.type){
    AG.forEach(a=>setCard(a.id,'🧠 thinking · living room',true,'…'));break;
  case 'MEETING_ENDED':AG.forEach(a=>setCard(a.id,'idle · at desk',false));break;
  case 'AGENT_FEEDBACK':feedbacks.unshift({role:e.role,text:e.text,t:Date.now()});
-   if(feedbacks.length>60)feedbacks.pop();fbUnread++;updateFbBadge();
+   if(feedbacks.length>60)feedbacks.pop();persist();fbUnread++;updateFbBadge();
    push(e.role,'💬 '+e.text);break;
  case 'SWARM_PAUSED':autonomous=false;syncStopBtn();push('warn','Autonomous meetings PAUSED');break;
  case 'SWARM_RESUMED':autonomous=true;syncStopBtn();push('ok','Autonomous meetings RESUMED');break;
- case 'PROPOSAL_FINALIZED':{proposals.unshift(e);if(proposals.length>50)proposals.pop();
+ case 'PROPOSAL_FINALIZED':{proposals.unshift(e);if(proposals.length>50)proposals.pop();persist();
    if(e.quorumMet)recordOnChain(e.proposalId,e.approvals||3,false);
    renderChain();renderMiniChain();
    if(e.verified)push('ok',`proposal ${String(e.proposalId).slice(0,8)}… signed & verified ✓`);
@@ -249,11 +258,11 @@ window.toggleSigs=i=>{const r=$('sigrow-'+i);if(r)r.style.display=r.style.displa
 async function recordOnChain(pid,approvals,force){try{
   const r=await fetch(RECORDER+'/chain/record',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({proposalId:pid,approvals,force})});
   const d=await r.json();
-  if(d.deployHash){recordedMap[pid]=d.deployHash;renderChain();
+  if(d.deployHash){recordedMap[pid]=d.deployHash;persist();renderChain();
     if(!d.cached){push('ok','⛓ recorded on Casper Testnet: '+d.deployHash.slice(0,12)+'…');toast('ok','⛓ REAL transaction sent — view it on cspr.live from the On-chain tab');}}
   else if(d.error&&force)toast('warn','recorder: '+d.error);
  }catch(e){if(force)toast('warn','recorder offline — check the RECORDER terminal');}}
-async function loadRecorded(){try{const r=await fetch(RECORDER+'/chain/recorded');const d=await r.json();recordedMap=d.recorded||{};}catch(e){}}
+async function loadRecorded(){try{const r=await fetch(RECORDER+'/chain/recorded');const d=await r.json();recordedMap=Object.assign({},recordedMap,d.recorded||{});persist();}catch(e){}}
 function updateFbBadge(){const b=$('fbBadge');b.style.display=fbUnread>0?'inline':'none';b.textContent=fbUnread;}
 function renderFeedback(){const el=$('fbList');el.innerHTML='';
   if(!feedbacks.length){el.innerHTML='<div class="msub">no feedback yet — it appears after each meeting</div>';return;}
@@ -271,12 +280,17 @@ function renderAgents(){const el=$('agentsBig');el.innerHTML='';
   AG.forEach((a,i)=>{const bg=['var(--card2)','var(--card3)','var(--card4)'][i];
     el.insertAdjacentHTML('beforeend',`<div class="bigcard" style="background:${bg}"><div style="font-weight:700;font-size:18px">${a.name}</div><div class="msub" style="margin-top:3px">${a.role}</div><div class="reason"><b>last reasoning:</b> ${lastReason[a.id]||'— no deliberation yet —'}</div></div>`);});}
 /* REAL x402 */
-async function refreshLedger(){try{const r=await fetch(GATEWAY+'/x402/ledger');const d=await r.json();const led=d.ledger||[];
+async function refreshLedger(){let led=ledgerCache;
+ try{const r=await fetch(GATEWAY+'/x402/ledger');const d=await r.json();
+   const srv=d.ledger||[];const seen=new Set(srv.map(x=>x.txHash));
+   led=[...ledgerCache.filter(x=>!seen.has(x.txHash)),...srv];
+   ledgerCache=led;persist();}catch(e){}
+ {
   $('x402v').textContent=led.length+' tx';$('x402s').textContent=(led.length*0.025).toFixed(3)+' CSPR';
   $('x402view-total').textContent=led.length+' payments · '+(led.length*0.025).toFixed(3)+' CSPR';
   const tb=$('ledgerRows');tb.innerHTML='';
   if(!led.length){tb.innerHTML='<tr><td colspan="4" style="color:var(--mute)">no payments yet</td></tr>';return;}
-  led.slice().reverse().forEach(x=>tb.insertAdjacentHTML('beforeend',`<tr style="cursor:pointer" onclick="if(this.dataset.chain==='1')window.open('https://testnet.cspr.live/deploy/'+this.dataset.tx.replace(/^0x/,''),'_blank');else showModal('x402 settlement','<b>tx</b><br>'+this.dataset.tx+'<br><br><b>payer (ed25519)</b><br>'+this.dataset.payer+'<br><br><b>amount</b><br>'+this.dataset.amt+' CSPR<br><br><i>internal settlement - recorder was offline</i>')" data-tx="${x.txHash}" data-payer="${x.payer}" data-amt="${x.amount}" data-chain="${x.onChain?1:0}"><td>${String(x.txHash).slice(0,16)}…</td><td>${x.amount} ${x.asset}</td><td style="color:var(--mute)">${String(x.payer).slice(0,14)}…</td><td style="color:var(--mute)">${String(x.resource).split('/').pop()}</td></tr>`));}catch(e){}}
+  led.slice().reverse().forEach(x=>tb.insertAdjacentHTML('beforeend',`<tr style="cursor:pointer" onclick="if(this.dataset.chain==='1')window.open('https://testnet.cspr.live/deploy/'+this.dataset.tx.replace(/^0x/,''),'_blank');else showModal('x402 settlement','<b>tx</b><br>'+this.dataset.tx+'<br><br><b>payer (ed25519)</b><br>'+this.dataset.payer+'<br><br><b>amount</b><br>'+this.dataset.amt+' CSPR<br><br><i>internal settlement - recorder was offline</i>')" data-tx="${x.txHash}" data-payer="${x.payer}" data-amt="${x.amount}" data-chain="${x.onChain?1:0}"><td>${String(x.txHash).slice(0,16)}…</td><td>${x.amount} ${x.asset}</td><td style="color:var(--mute)">${String(x.payer).slice(0,14)}…</td><td style="color:var(--mute)">${String(x.resource).split('/').pop()}</td></tr>`));}}
 window.buyData=async()=>{push('system','x402 › requesting premium RWA data…');
   try{const r=await fetch(GATEWAY+'/x402/purchase',{method:'POST'});const d=await r.json();
     if(d.settlement){push('ok',`x402 › 402→signed→200 · settled ${String(d.settlement.txHash).slice(0,12)}… (${d.price} CSPR) · valuation $${(d.valuationUSD||0).toLocaleString()}`);if(d.settlement.onChain)toast('ok','x402 settled with a REAL Casper transfer — click the row to open it');refreshLedger();}
@@ -298,8 +312,12 @@ window.toggleSaved=async()=>{const w=$('savedWrap');if(w.style.display==='none')
   (d.saved||[]).slice().reverse().forEach(f=>el.insertAdjacentHTML('beforeend',`<div class="bigcard" style="background:${C[f.role]||'var(--card)'};padding:10px 13px;margin-bottom:8px"><div style="display:flex;justify-content:space-between"><b style="text-transform:capitalize">${f.role} \u00b7 ${f.vote||''}</b><span class="msub">${new Date((f.ts||0)*1000).toLocaleString('en-GB')}</span></div><div style="margin-top:4px;font-family:var(--mono);font-size:12px">${f.text}</div></div>`));
   w.style.display='block';}catch(e){toast('warn','swarm unreachable');}}else w.style.display='none';};
 async function loadHistory(){try{const r=await fetch(SWARM+'/swarm/history');const d=await r.json();
-  proposals=(d.proposals||[]).slice(0,50);
-  feedbacks=(d.feedback||[]).map(f=>({role:f.role,text:f.text,t:(f.ts||0)*1000}));
+  const srv=(d.proposals||[]);const have=new Set(srv.map(p=>p.proposalId));
+  proposals=[...srv,...proposals.filter(p=>!have.has(p.proposalId))].slice(0,50);
+  const sfb=(d.feedback||[]).map(f=>({role:f.role,text:f.text,t:(f.ts||0)*1000}));
+  const fseen=new Set(sfb.map(f=>f.t+f.role));
+  feedbacks=[...sfb,...feedbacks.filter(f=>!fseen.has(f.t+f.role))].slice(0,60);
+  persist();
   (d.stream||[]).slice(0,40).reverse().forEach(e=>{try{handle(e);}catch(_){}});
   renderChain();renderMiniChain();
  }catch(e){}}

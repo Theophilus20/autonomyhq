@@ -64,6 +64,8 @@ Proposal history, transactions, activity logs, feedback, and the pause state are
 
 The dashboard brings everything together in one place. You can see the live agent cards, the pixel office, the reasoning stream, quorum status, payment counters, and signed proposals. The sidebar gives access to Dashboard, Agents, On-chain, x402, and Feedback. Social and support links are at the bottom. The portfolio values are just placeholders for the demo. Inside the office you can drag with the middle mouse button to move around, use the zoom buttons to zoom in or out, and switch to fullscreen with the square button.
 
+## Architecture
+
 | Service | Stack | Role |
 |---|---|---|
 | Swarm Orchestrator | Python, FastAPI | agents, consensus, signatures, history |

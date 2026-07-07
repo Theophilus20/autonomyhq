@@ -120,7 +120,7 @@ td{padding:9px 8px;border-bottom:1px solid var(--mute);vertical-align:top}
         <div class="acard c3" id="card-treasury-agent-01"><div class="arow"><div class="aicon"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="12" cy="12" r="3.4"/><path d="M12 10.2v3.6M20.5 9.5v5"/></svg></div><div><div class="aname">Treasury</div><div class="arole">EXECUTION · SIGNING</div></div></div><div class="astat"><span class="sdot"></span><span class="st">idle · at desk</span></div><div class="avote vt">—</div></div>
       </div>
       <div class="mid">
-        <div class="office"><iframe id="officeFrame" src="http://localhost:3100/"></iframe><div class="tag">AGENT OFFICE · LIVE</div><button class="btn g" style="position:absolute;top:7px;right:9px" onclick="fsOffice()" title="Fullscreen — use this to access the office Settings comfortably">⛶</button></div>
+        <div class="office"><iframe id="officeFrame" src="about:blank"></iframe><div class="tag">AGENT OFFICE · LIVE</div><button class="btn g" style="position:absolute;top:7px;right:9px" onclick="fsOffice()" title="Fullscreen — use this to access the office Settings comfortably">⛶</button></div>
         <div class="panel"><div class="ptitle"><span>SWARM STREAM</span><span style="color:var(--amber)">● LIVE</span></div><div id="stream"></div></div>
       </div>
       <div class="metrics">
@@ -322,7 +322,7 @@ async function loadHistory(){try{const r=await fetch(SWARM+'/swarm/history');con
   renderChain();renderMiniChain();
  }catch(e){}}
 setInterval(()=>{loadRecorded().then(()=>{if(document.querySelector('#view-onchain.on'))renderChain();});},30000);
-if(AHQ.OFFICE)document.getElementById("officeFrame").src=AHQ.OFFICE;
+document.getElementById("officeFrame").src=AHQ.OFFICE||"http://localhost:3100/";
 connect();refreshLedger();loadRecorded().then(()=>loadHistory());syncStopBtn();fetch(SWARM+'/swarm/state').then(r=>r.json()).then(d=>{autonomous=!!d.running;syncStopBtn();}).catch(()=>{});
 </script>
 </body>

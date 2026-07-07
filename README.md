@@ -12,7 +12,7 @@ Three AI agents manage a real treasury from end to end. They convene autonomousl
 
 ## Try it:
 
-1. Open the live demo: **https://autonomyhq-gateway.onrender.com**
+1. Open the live demo: **https://autonomyhq.xyz/**
    The demo runs on free hosting that sleeps when idle, so the first visit can take up to a minute while the services wake. If the dashboard looks empty, wait thirty seconds and refresh once.
 2. Check the button in the top right. If it says **START AGENTS**, click it. The swarm is now live.
 3. Watch the office. The three characters sit at their computers and type. Each typing character means that agent has a real task in flight.

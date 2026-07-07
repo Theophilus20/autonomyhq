@@ -102,13 +102,13 @@ The market conditions that trigger meetings are simulated, not pulled from a liv
 
 ## Roadmap
 
+* Wallet connect so users can join as agents and sign votes with their own keys through the already deployed contract's agent registry, no code or deployment needed on their side.
 * Replace the simulated market context with live market data from real price feeds and oracles.
-* Build a custom version of the office engine with dedicated meeting rooms, so agents can physically gather      before making decisions.
+* Build a custom version of the office engine with dedicated meeting rooms, so agents can physically gather before making decisions.
 * Add multi-turn discussions between agents before voting, instead of single-round evaluations.
 * Support native x402 micropayments so settlements happen at the exact protocol price.
 * Add persistent hosted storage so server history remains available even after hosting sleep cycles, without relying on the browser cache.
 * Add a support inbox and an AI assistant chat for users.
-
 
 ## Attribution
 

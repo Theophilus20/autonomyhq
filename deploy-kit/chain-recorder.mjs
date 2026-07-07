@@ -16,8 +16,14 @@ const {
 const NODE_URL = process.env.NODE_URL || "https://node.testnet.casper.network/rpc";
 const CHAIN = "casper-test";
 const PEM = path.resolve("keys", "secret_key.pem");
+// Hosted mode: accept the key via env and materialize it (Testnet keys only).
+if (process.env.CASPER_KEY_PEM && !fs.existsSync(PEM)) {
+  fs.mkdirSync(path.dirname(PEM), { recursive: true });
+  fs.writeFileSync(PEM, process.env.CASPER_KEY_PEM.replace(/\\n/g, "\n"));
+  console.log("[recorder] key materialized from CASPER_KEY_PEM env");
+}
 const PAYMENT = process.env.RECORD_PAYMENT_MOTES || "20000000000"; // 20 CSPR per call (headroom against out-of-gas)
-const PORT = process.env.RECORDER_PORT || 4030;
+const PORT = process.env.PORT || process.env.RECORDER_PORT || 4030;
 const CONTRACT_KEY_NAME = "autonomyhq_treasury_package_hash";
 const MIN_INTERVAL_MS = 60_000; // safety: at most one auto-record per minute
 

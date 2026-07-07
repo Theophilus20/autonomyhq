@@ -1,0 +1,59 @@
+# AutonomyHQ - one-click Render Blueprint (free tier)
+# Deploys the swarm, gateway (which also serves Mission Control),
+# the pixel office with its bridge, and the on-chain recorder.
+services:
+  - type: web
+    name: autonomyhq-swarm
+    runtime: python
+    plan: free
+    rootDir: apps/swarm-orchestrator
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: GATEWAY_URL
+        value: https://autonomyhq-gateway.onrender.com
+
+  - type: web
+    name: autonomyhq-gateway
+    runtime: node
+    plan: free
+    rootDir: apps/data-mesh-gateway
+    buildCommand: npm install
+    startCommand: node src/server.js
+    envVars:
+      - key: RECORDER_URL
+        value: https://autonomyhq-recorder.onrender.com
+      - key: PUBLIC_SWARM_URL
+        value: https://autonomyhq-swarm.onrender.com
+      - key: PUBLIC_GATEWAY_URL
+        value: https://autonomyhq-gateway.onrender.com
+      - key: PUBLIC_RECORDER_URL
+        value: https://autonomyhq-recorder.onrender.com
+      - key: PUBLIC_OFFICE_URL
+        value: https://autonomyhq-office.onrender.com
+
+  - type: web
+    name: autonomyhq-office
+    runtime: node
+    plan: free
+    rootDir: apps/office
+    buildCommand: npm install
+    startCommand: bash -c "PIXEL_AGENTS_PORT=$PORT node dist/cli.js & sleep 12; node athanor-bridge.mjs; wait"
+    envVars:
+      - key: SWARM_WS
+        value: wss://autonomyhq-swarm.onrender.com/ws/stream
+
+  - type: web
+    name: autonomyhq-recorder
+    runtime: node
+    plan: free
+    rootDir: deploy-kit
+    buildCommand: npm install
+    startCommand: node chain-recorder.mjs
+    envVars:
+      - key: CASPER_KEY_PEM
+        sync: false
+      - key: NODE_URL
+        value: https://node.testnet.casper.network/rpc

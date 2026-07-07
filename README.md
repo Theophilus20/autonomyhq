@@ -44,7 +44,7 @@ Testnet**.
 4. **Real transactions.** Approved proposals are queued and recorded
    on-chain: a transaction calls `execute_rebalance` on the deployed
    contract. x402 data purchases settle with real Testnet transfers.
-5. **Mission Control** (localhost:3200) shows all of it live: the office,
+5. **Mission Control** shows all of it live: the office,
    the reasoning stream, quorum, feedback, and clickable on-chain links.
 
 ## Quickstart (Windows)

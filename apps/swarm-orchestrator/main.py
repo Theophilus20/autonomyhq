@@ -265,7 +265,8 @@ def _buy_market_data() -> dict | None:
     deliberating — a real 402 -> signed-payment -> 200 round-trip."""
     import urllib.request
     try:
-        req = urllib.request.Request("http://127.0.0.1:4021/x402/purchase", method="POST")
+        gw = os.environ.get("GATEWAY_URL", "http://127.0.0.1:4021")
+        req = urllib.request.Request(gw + "/x402/purchase", method="POST")
         with urllib.request.urlopen(req, timeout=50) as r:
             return json.loads(r.read().decode())
     except Exception:

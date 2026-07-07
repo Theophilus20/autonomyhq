@@ -115,7 +115,7 @@ td{padding:9px 8px;border-bottom:1px solid var(--mute);vertical-align:top}
         <div class="acard c3" id="card-treasury-agent-01"><div class="arow"><div class="aicon"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="12" cy="12" r="3.4"/><path d="M12 10.2v3.6M20.5 9.5v5"/></svg></div><div><div class="aname">Treasury</div><div class="arole">EXECUTION · SIGNING</div></div></div><div class="astat"><span class="sdot"></span><span class="st">idle · at desk</span></div><div class="avote vt">—</div></div>
       </div>
       <div class="mid">
-        <div class="office"><iframe src="http://localhost:3100/"></iframe><div class="tag">AGENT OFFICE · LIVE</div><button class="btn g" style="position:absolute;top:7px;right:9px" onclick="fsOffice()" title="Fullscreen — use this to access the office Settings comfortably">⛶</button></div>
+        <div class="office"><iframe id="officeFrame" src="http://localhost:3100/"></iframe><div class="tag">AGENT OFFICE · LIVE</div><button class="btn g" style="position:absolute;top:7px;right:9px" onclick="fsOffice()" title="Fullscreen — use this to access the office Settings comfortably">⛶</button></div>
         <div class="panel"><div class="ptitle"><span>SWARM STREAM</span><span style="color:var(--amber)">● LIVE</span></div><div id="stream"></div></div>
       </div>
       <div class="metrics">
@@ -166,9 +166,13 @@ td{padding:9px 8px;border-bottom:1px solid var(--mute);vertical-align:top}
 <div class="modalback" id="modalback" onclick="if(event.target===this)closeModal()">
   <div class="modal"><div class="mh"><span id="mtitle">Details</span><button class="mclose" onclick="closeModal()">✕</button></div><div class="mb" id="mbody"></div></div>
 </div>
+<script src="./ahq-config.js"></script>
 <script>
-const GATEWAY="http://127.0.0.1:4021", WS="ws://127.0.0.1:8080/ws/stream";
-const SWARM="http://127.0.0.1:8080", RECORDER="http://127.0.0.1:4030";
+const AHQ=window.AHQ_CONFIG||{};
+const GATEWAY=AHQ.GATEWAY||"http://127.0.0.1:4021";
+const SWARM_HTTP=AHQ.SWARM||"http://127.0.0.1:8080";
+const WS=SWARM_HTTP.replace(/^http/,"ws")+"/ws/stream";
+const SWARM=SWARM_HTTP, RECORDER=AHQ.RECORDER||"http://127.0.0.1:4030";
 const CONTRACT_PACKAGE="5f5bf585fe56fc504797a8f819aa7b2914d5ba95208a5c60a363ce57f1ccda58";
 const CSPR="https://testnet.cspr.live";
 const $=id=>document.getElementById(id);
@@ -300,6 +304,7 @@ async function loadHistory(){try{const r=await fetch(SWARM+'/swarm/history');con
   renderChain();renderMiniChain();
  }catch(e){}}
 setInterval(()=>{loadRecorded().then(()=>{if(document.querySelector('#view-onchain.on'))renderChain();});},30000);
+if(AHQ.OFFICE)document.getElementById("officeFrame").src=AHQ.OFFICE;
 connect();refreshLedger();loadRecorded().then(()=>loadHistory());syncStopBtn();fetch(SWARM+'/swarm/state').then(r=>r.json()).then(d=>{autonomous=!!d.running;syncStopBtn();}).catch(()=>{});
 </script>
 </body>

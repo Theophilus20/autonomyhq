@@ -17,13 +17,30 @@ import {
 const app = express();
 
 // CORS so the Mission Control dashboard (:3200) can call the gateway directly.
+// ---- Hosted mode: serve Mission Control + runtime config ----
+import path from "path";
+import { fileURLToPath } from "url";
+const __ahqdir = path.dirname(fileURLToPath(import.meta.url));
+const MISSION_CONTROL_DIR = path.resolve(__ahqdir, "../../office/mission-control");
+app.get("/ahq-config.js", (_req, res) => {
+  res.type("application/javascript").send(
+    "window.AHQ_CONFIG=" + JSON.stringify({
+      SWARM: process.env.PUBLIC_SWARM_URL || "",
+      GATEWAY: process.env.PUBLIC_GATEWAY_URL || "",
+      RECORDER: process.env.PUBLIC_RECORDER_URL || "",
+      OFFICE: process.env.PUBLIC_OFFICE_URL || "",
+    }) + ";"
+  );
+});
+app.use(express.static(MISSION_CONTROL_DIR));
+
 app.use((req, res, next) => {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
-const PORT = process.env.GATEWAY_PORT || 4021;
+const PORT = process.env.PORT || process.env.GATEWAY_PORT || 4021;
 const PAY_TO = process.env.ATHANOR_TREASURY_ADDR || "01treasury0000000000000000000000000000000000000000000000000000000000";
 const PRICE = process.env.X402_PRICE || "0.025"; // CSPR per request
 
@@ -125,7 +142,7 @@ app.post("/x402/purchase", async (req, res) => {
     try {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 45000);
-      const rr = await fetch("http://127.0.0.1:4030/chain/x402", { method: "POST", signal: ctrl.signal });
+      const rr = await fetch((process.env.RECORDER_URL || "http://127.0.0.1:4030") + "/chain/x402", { method: "POST", signal: ctrl.signal });
       clearTimeout(t);
       const rd = await rr.json();
       if (rd.deployHash) {

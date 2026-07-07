@@ -1,20 +1,19 @@
 # AutonomyHQ 🏛
 
-**An autonomous AI treasury on the Casper Network** — three LLM-powered agents
+**An autonomous AI treasury on the Casper Network** three LLM-powered agents
 (Risk, Compliance, Treasury) run a real treasury: they convene on their own
 schedule in a live pixel-art office, deliberate with genuine `gpt-4o-mini`
 reasoning, sign every decision with ed25519, purchase market data through x402
 micropayments, and execute approved decisions as **real transactions on Casper
 Testnet**.
 
-Built for the **Casper Agentic Buildathon 2026**.
 
 ## 🔗 Live on Casper Testnet
 
 | | |
 |---|---|
 | **Treasury contract (package)** | [`hash-5f5bf585…ccda58`](https://testnet.cspr.live/contract-package/5f5bf585fe56fc504797a8f819aa7b2914d5ba95208a5c60a363ce57f1ccda58) |
-| **Operator account** | [`01b58dbd…196a`](https://testnet.cspr.live/account/01b58dbd782cf6f33e240d78eec1831cf369aef257e64fc2c7e64a4c6001d8196a) — every agent transaction is visible here |
+| **Operator account** | [`01b58dbd…196a`](https://testnet.cspr.live/account/01b58dbd782cf6f33e240d78eec1831cf369aef257e64fc2c7e64a4c6001d8196a) every agent transaction is visible here |
 | **Contract** | Odra 2.4 (Rust → wasm), multi-sig agent registry + quorum-gated `execute_rebalance`, deployed with a custom Node.js deployer (`deploy-kit/`) |
 
 ## How it works
@@ -38,7 +37,7 @@ Built for the **Casper Agentic Buildathon 2026**.
 1. **Agents decide when to meet.** A drifting market context triggers
    autonomous deliberations every few minutes (or press NEW PROPOSAL).
 2. **Real reasoning.** Each agent evaluates the proposal through its own
-   role-prompted OpenRouter call; a rejection by one agent blocks quorum —
+   role-prompted OpenRouter call; a rejection by one agent blocks quorum
    the agents are not rubber stamps.
 3. **Real signatures.** Every vote is ed25519-signed and independently
    verified before a proposal finalizes.
@@ -78,7 +77,7 @@ start.bat   :: launches all 6 services and opens Mission Control
 ## Attribution
 
 The pixel office is a fork of [Pixel Agents](https://github.com/pablodelucca/pixel-agents)
-by Pablo De Lucca (MIT — see `apps/office/LICENSE.pixel-agents` and
+by Pablo De Lucca (MIT see `apps/office/LICENSE.pixel-agents` and
 `apps/office/ATTRIBUTION.md`). Character/tile art credits: JIK-A-4 / Metro City.
 
 ## License

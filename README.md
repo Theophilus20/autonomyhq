@@ -66,13 +66,13 @@ The dashboard brings everything together in one place. You can see the live agen
 
 ## Architecture
 
-```
-Swarm Orchestrator   Python FastAPI    agents, consensus, signatures, history
-Data Mesh Gateway    Node Express      x402 data market, also serves the dashboard
-Recorder             Node              holds the operator key, submits transactions
-Pixel Office         Node Fastify      the visual world, a fork of Pixel Agents
-Bridge               Node              maps swarm events to character behavior
-```
+| Service | Stack | Role |
+|---|---|---|
+| Swarm Orchestrator | Python, FastAPI | agents, consensus, signatures, history |
+| Data Mesh Gateway | Node, Express | x402 data market, also serves the dashboard |
+| Recorder | Node | holds the operator key, submits transactions |
+| Pixel Office | Node, Fastify | the visual world, a fork of Pixel Agents |
+| Bridge | Node | maps swarm events to character behavior |
 
 The swarm broadcasts every event through WebSocket. The Bridge listens for those events and turns them into character actions inside the pixel office. The Recorder is the only service that interacts with the blockchain. The treasury contract is written in Rust using Odra 2.4 and keeps track of the registered agent keys together with the required quorum threshold.
 
@@ -102,13 +102,13 @@ The market conditions that trigger meetings are simulated, not pulled from a liv
 
 ## Roadmap
 
+* Wallet connect so users can join as agents and sign votes with their own keys through the already deployed contract's agent registry, no code or deployment needed on their side.
 * Replace the simulated market context with live market data from real price feeds and oracles.
-* Build a custom version of the office engine with dedicated meeting rooms, so agents can physically gather      before making decisions.
+* Build a custom version of the office engine with dedicated meeting rooms, so agents can physically gather before making decisions.
 * Add multi-turn discussions between agents before voting, instead of single-round evaluations.
 * Support native x402 micropayments so settlements happen at the exact protocol price.
 * Add persistent hosted storage so server history remains available even after hosting sleep cycles, without relying on the browser cache.
 * Add a support inbox and an AI assistant chat for users.
-
 
 ## Attribution
 

@@ -322,7 +322,7 @@ async function loadHistory(){try{const r=await fetch(SWARM+'/swarm/history');con
   renderChain();renderMiniChain();
  }catch(e){}}
 setInterval(()=>{loadRecorded().then(()=>{if(document.querySelector('#view-onchain.on'))renderChain();});},30000);
-document.getElementById("officeFrame").src=AHQ.OFFICE||"http://localhost:3100/";
+if(AHQ.OFFICE&&location.hostname!=="localhost"&&location.hostname!=="127.0.0.1")document.getElementById("officeFrame").src=AHQ.OFFICE;else document.getElementById("officeFrame").src="http://localhost:3100/";
 connect();refreshLedger();loadRecorded().then(()=>loadHistory());syncStopBtn();fetch(SWARM+'/swarm/state').then(r=>r.json()).then(d=>{autonomous=!!d.running;syncStopBtn();}).catch(()=>{});
 </script>
 </body>

@@ -1,0 +1,14 @@
+{
+  "name": "@athanor/data-mesh-gateway",
+  "version": "0.1.0",
+  "description": "x402 micropayment gateway + MCP router for the Athanor swarm",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "prove": "node src/prove_x402.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "tweetnacl": "^1.0.3"
+  }
+}

@@ -1,0 +1,16 @@
+CONTRACTS FIX — exact Odra 2.4.0 template structure (from Odra's own repo).
+
+1. Close nothing — just open CMD:
+     cd C:\Users\USER\autonomyhq\contracts
+2. DELETE the wrong toolchain files:
+     del rust-toolchain.toml
+     del rust-toolchain
+     del Cargo.lock
+3. Copy ALL files from this zip into C:\Users\USER\autonomyhq\contracts\
+   (overwrite everything: Cargo.toml, Odra.toml, build.rs, rust-toolchain,
+    bin\build_contract.rs, bin\build_schema.rs)
+4. Clear the override from earlier and build:
+     rustup override unset
+     cargo odra build
+   (first run downloads nightly-2025-01-01 — let it finish)
+5. Success = file appears at wasm\AthanorTreasury.wasm  → check: dir wasm

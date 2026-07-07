@@ -1,0 +1,21 @@
+# Athanor — full local infrastructure mesh.
+#   docker-compose up --build
+version: "3.9"
+services:
+  swarm-orchestrator:
+    build: ./apps/swarm-orchestrator
+    ports: ["8080:8080"]
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - ATHANOR_MODEL=${ATHANOR_MODEL:-openai/gpt-4o-mini}
+    restart: unless-stopped
+  data-mesh-gateway:
+    build: ./apps/data-mesh-gateway
+    ports: ["4021:4021"]
+    environment: [ "GATEWAY_PORT=4021", "X402_PRICE=0.025" ]
+    restart: unless-stopped
+  frontend:
+    build: ./apps/enterprise-frontend
+    ports: ["3000:3000"]
+    depends_on: [swarm-orchestrator, data-mesh-gateway]
+    restart: unless-stopped

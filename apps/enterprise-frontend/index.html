@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ATHANOR — Autonomous Sovereign Economic Network</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  :root{
+    --bg:#0A0B0F;--panel:#12141B;--panel2:#171A22;--line:#242833;
+    --ink:#F5F3EF;--dim:#B9B7B1;--mute:#6B6A66;
+    --amber:#FF6A1A;--amber2:#FF8A47;--green:#3BE08A;--red:#FF5C5C;--blue:#8FB4FF;
+    --mono:'JetBrains Mono',monospace;--sans:'Inter',sans-serif;--display:'Archivo Expanded',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden;height:100vh;
+    background-image:radial-gradient(1100px 500px at 70% -10%,rgba(255,106,26,.09),transparent 60%);}
+  .app{display:grid;grid-template-columns:1fr 340px;grid-template-rows:auto 1fr auto;height:100vh;gap:0}
+  /* header */
+  .hdr{grid-column:1/3;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:11px}
+  .logo{width:28px;height:28px;border-radius:7px;background:var(--amber);display:grid;place-items:center;box-shadow:0 0 16px rgba(255,106,26,.55);font-size:15px}
+  .brand h1{font-family:var(--display);font-size:15px;letter-spacing:3px;font-weight:800}
+  .brand .sub{font-family:var(--mono);font-size:9px;color:var(--mute);letter-spacing:2px;margin-top:2px}
+  .status{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:6px 14px;font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:1px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:pulse 1.8s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  /* stage */
+  .stage{position:relative;overflow:hidden;background:#0A0B0F}
+  #game{display:block;width:100%;height:100%}
+  .hud{position:absolute;left:16px;bottom:16px;display:flex;gap:10px;flex-wrap:wrap;pointer-events:none}
+  .card{background:rgba(18,20,27,.9);border:1px solid var(--line);border-radius:12px;padding:10px 14px;backdrop-filter:blur(6px)}
+  .card .lbl{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--mute);margin-bottom:6px}
+  .card .val{font-family:var(--mono);font-size:15px}
+  .quorumwrap{position:absolute;left:16px;top:16px;background:rgba(18,20,27,.9);border:1px solid var(--line);border-radius:12px;padding:10px 14px;min-width:200px}
+  .qbar{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;margin-top:8px}
+  .qfill{height:100%;width:0;background:var(--amber);box-shadow:0 0 8px var(--amber);transition:width .4s}
+  /* chat */
+  .chat{grid-row:2/4;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+  .chat h2{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--mute);padding:14px 16px 10px;display:flex;justify-content:space-between;align-items:center}
+  .chat .live{color:var(--amber)}
+  #chatfeed{flex:1;overflow-y:auto;padding:0 14px 14px;font-family:var(--mono);font-size:12px;line-height:1.7;scrollbar-width:thin}
+  .msg{margin-bottom:10px;opacity:0;animation:fade .3s forwards;border-left:2px solid var(--line);padding-left:9px}
+  @keyframes fade{to{opacity:1}}
+  .msg .who{font-weight:700;font-size:11px}
+  .msg .tx{color:var(--dim);display:block;margin-top:2px}
+  .msg .tm{color:#4D4C48;font-size:9px;float:right}
+  .ctrl{border-top:1px solid var(--line);padding:12px 14px;display:flex;gap:8px}
+  .btn{flex:1;font-family:var(--mono);font-size:11px;letter-spacing:1px;padding:10px;border-radius:20px;border:none;cursor:pointer;transition:.15s}
+  .btn-p{background:var(--amber);color:#0A0B0F;font-weight:700;box-shadow:0 0 18px rgba(255,106,26,.35)}
+  .btn-p:hover{background:var(--amber2)}
+  .btn-g{background:transparent;border:1px solid var(--line);color:var(--dim)}
+  .btn-g:hover{border-color:var(--amber);color:var(--ink)}
+  /* footer ticker */
+  .foot{grid-column:1/2;border-top:1px solid var(--line);padding:8px 20px;font-family:var(--mono);font-size:11px;color:var(--mute);display:flex;justify-content:space-between;align-items:center}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="hdr">
+    <div class="brand"><div class="logo">🜂</div><div><h1>ATHANOR</h1><div class="sub">AUTONOMOUS SOVEREIGN ECONOMIC NETWORK · CASPER</div></div></div>
+    <div class="status"><span class="dot"></span><span id="conn">CONNECTING…</span></div>
+  </div>
+
+  <div class="stage">
+    <canvas id="game" width="1000" height="720"></canvas>
+    <div class="quorumwrap">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--mute)">SWARM QUORUM</div>
+      <div style="font-family:var(--mono);font-size:16px;margin-top:4px"><span id="qnum">0/3</span> <span id="qstate" style="font-size:11px;color:var(--mute)">idle</span></div>
+      <div class="qbar"><div class="qfill" id="qfill"></div></div>
+    </div>
+    <div class="hud">
+      <div class="card"><div class="lbl">GOLD RWA</div><div class="val">$1,240,500 <span style="color:var(--green);font-size:11px">+2.4%</span></div></div>
+      <div class="card"><div class="lbl">REAL ESTATE RWA</div><div class="val">$890,200 <span style="color:var(--red);font-size:11px">−0.8%</span></div></div>
+      <div class="card"><div class="lbl">x402 LEDGER</div><div class="val" id="x402count">0 tx · 0.000 CSPR</div></div>
+    </div>
+  </div>
+
+  <div class="chat">
+    <h2><span>SWARM STREAM</span><span class="live" id="streamlive">● LIVE</span></h2>
+    <div id="chatfeed"></div>
+    <div class="ctrl">
+      <button class="btn btn-p" onclick="trigger()">NEW PROPOSAL</button>
+      <button class="btn btn-g" onclick="buyData()">BUY DATA (x402)</button>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span id="footstate">swarm idle · agents in offices</span>
+    <span>ATHANOR v1 · Casper Testnet</span>
+  </div>
+</div>
+
+<script type="module">
+import { World } from "./world.js";
+
+const canvas = document.getElementById("game");
+function fit(){ const s=canvas.parentElement; canvas.width=s.clientWidth; canvas.height=s.clientHeight; }
+fit(); window.addEventListener("resize", fit);
+
+const world = new World(canvas);
+const feed = document.getElementById("chatfeed");
+const conn = document.getElementById("conn");
+const qnum = document.getElementById("qnum"), qfill=document.getElementById("qfill"), qstate=document.getElementById("qstate");
+const foot = document.getElementById("footstate");
+
+world.onLog = (e) => {
+  const roleColors={risk:"#8FB4FF","l&c":"#3BE08A",treasury:"#FF6A1A",system:"#B9B7B1",ok:"#3BE08A",warn:"#FF5C5C"};
+  const c = e.color || roleColors[e.kind] || "#B9B7B1";
+  const div = document.createElement("div");
+  div.className="msg"; div.style.borderLeftColor=c;
+  const who = e.kind==="system"?"swarm":e.kind==="ok"?"casper":e.kind==="warn"?"swarm":e.kind;
+  div.innerHTML=`<span class="tm">${e.ts}</span><span class="who" style="color:${c}">${who}</span><span class="tx">${e.text}</span>`;
+  feed.appendChild(div); feed.scrollTop=feed.scrollHeight;
+  while(feed.children.length>80) feed.removeChild(feed.firstChild);
+  // update quorum HUD
+  qnum.textContent=`${world.quorum.approvals}/${world.quorum.required}`;
+  qfill.style.width=(world.quorum.approvals/world.quorum.required*100)+"%";
+};
+
+await world.init();
+
+// x402 ledger
+let x402n=0;
+window.buyData=()=>{
+  x402n++;
+  document.getElementById("x402count").textContent=`${x402n} tx · ${(x402n*0.025).toFixed(3)} CSPR`;
+  world.pushLog("system", `x402 › 402 Payment Required → signed → 200 · RWA valuation purchased (0.025 CSPR)`, "#FF8A47");
+};
+
+// ---- WebSocket to swarm orchestrator ----
+const WS = (location.hostname==="localhost"||location.hostname==="127.0.0.1")
+  ? "ws://127.0.0.1:8080/ws/stream" : (window.ATHANOR_WS||"ws://127.0.0.1:8080/ws/stream");
+let ws;
+function connect(){
+  try{ ws=new WebSocket(WS); }catch(e){ demo(); return; }
+  ws.onopen=()=>{ conn.textContent="CASPER TESTNET · LIVE"; };
+  ws.onmessage=(m)=>{ try{ const e=JSON.parse(m.data); world.handleEvent(e);
+    if(e.type==="PROPOSAL_OPENED")foot.textContent="agents walking to boardroom…";
+    if(e.type==="QUORUM_RESULT")foot.textContent=e.quorumMet?"approved · treasury signing on-chain":"rejected · agents returning";
+  }catch(err){} };
+  ws.onclose=()=>{ conn.textContent="RECONNECTING…"; setTimeout(connect,2000); };
+  ws.onerror=()=>{ conn.textContent="OFFLINE · demo mode"; demo(); };
+}
+window.trigger=()=>{ if(ws&&ws.readyState===1) ws.send(JSON.stringify({action:"REBALANCE"})); else demo(); };
+
+// offline demo so the stage is never dead
+function demo(){
+  const seq=[
+    {type:"PROPOSAL_OPENED",action:"REBALANCE",payload:{targetAsset:"GOLD-RWA"}},
+    {type:"AGENT_VOTE",agentId:"risk-agent-01",role:"risk",vote:"APPROVE",reasoning:"volatility σ=0.22 within band; depth healthy"},
+    {type:"AGENT_VOTE",agentId:"lc-agent-01",role:"l&c",vote:"APPROVE",reasoning:"GOLD-RWA whitelisted; KYC/ZK verified"},
+    {type:"AGENT_VOTE",agentId:"treasury-agent-01",role:"treasury",vote:"APPROVE",reasoning:"delta 0.10 within cap; headroom ok"},
+    {type:"QUORUM_RESULT",approvals:3,required:3,quorumMet:true},
+    {type:"PROPOSAL_FINALIZED",verified:true},
+  ];
+  let i=0,base=1400;
+  seq.forEach((ev)=>{ setTimeout(()=>world.handleEvent(ev), base); base+= ev.type==="PROPOSAL_OPENED"?2600:1500; });
+}
+connect();
+setTimeout(()=>{ if(!ws||ws.readyState!==1) demo(); }, 2600);
+setInterval(()=>{ if(!ws||ws.readyState!==1) demo(); }, 22000);
+</script>
+</body>
+</html>

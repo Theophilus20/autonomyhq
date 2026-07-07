@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AutonomyHQ · Mission Control</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+:root{--bg:#FAF3E7;--side:#CDEBD8;--card:#FFF;--card2:#FFD84D;--card3:#F6C6EA;--card4:#CDE3FB;
+--ink:#111;--dim:#444;--mute:#777;--bd:#111;--sh:#111;
+--amber:#FF6A1A;--green:#0E9F5D;--red:#D93636;--blue:#2563EB;
+--mono:'JetBrains Mono',monospace;--disp:'Space Grotesk',sans-serif;}
+[data-theme="dark"]{--bg:#101014;--side:#16211B;--card:#1A1A20;--card2:#3A2C08;--card3:#33202E;--card4:#1E2A3C;
+--ink:#F5F3EF;--dim:#C7C5BF;--mute:#84828A;--bd:#F5F3EF;--sh:#FF6A1A;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--disp);height:100vh;overflow:hidden}
+.app{display:grid;grid-template-columns:210px 1fr;height:100vh}
+.side{background:var(--side);border-right:2px solid var(--bd);padding:18px 14px;display:flex;flex-direction:column;gap:8px}
+.logo{display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.logobox{width:34px;height:34px;border:2px solid var(--bd);border-radius:8px;background:var(--card2);display:grid;place-items:center;box-shadow:3px 3px 0 var(--sh)}
+.logo h1{font-size:16px;font-weight:700}
+.nav{display:flex;flex-direction:column;gap:6px}
+.nav a{display:flex;align-items:center;gap:9px;padding:9px 11px;border:2px solid transparent;border-radius:8px;font-size:13px;font-weight:500;color:var(--ink);cursor:pointer;user-select:none}
+.nav a.on{background:var(--ink);color:var(--bg);border-color:var(--bd);box-shadow:3px 3px 0 var(--sh)}
+.nav a:not(.on):hover{border-color:var(--bd)}
+.spacer{flex:1}
+.toggle{display:flex;align-items:center;gap:8px;padding:9px 11px;border:2px solid var(--bd);border-radius:8px;background:var(--card);cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:700;box-shadow:3px 3px 0 var(--sh)}
+.toggle:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--sh)}
+.main{display:flex;flex-direction:column;gap:10px;padding:14px;min-height:0;overflow:hidden}
+.hdr{display:flex;align-items:center;justify-content:space-between;flex:none}
+.hdr h2{font-size:26px;font-weight:700}
+.pill{display:flex;align-items:center;gap:8px;border:2px solid var(--bd);border-radius:20px;padding:6px 14px;background:var(--card);font-family:var(--mono);font-size:11px;font-weight:700;box-shadow:3px 3px 0 var(--sh)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--green);animation:p 1.6s infinite}@keyframes p{50%{opacity:.35}}
+.view{flex:1;min-height:0;display:none;flex-direction:column;gap:10px}
+.view.on{display:flex}
+/* dashboard */
+.agents{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;flex:none}
+.acard{border:2px solid var(--bd);border-radius:12px;background:var(--card2);padding:12px 14px;box-shadow:4px 4px 0 var(--sh);position:relative}
+.acard.c2{background:var(--card3)}.acard.c3{background:var(--card4)}
+.arow{display:flex;align-items:center;gap:10px}
+.aicon{width:38px;height:38px;border:2px solid var(--bd);border-radius:9px;background:var(--card);display:grid;place-items:center;flex:none}
+.aicon svg{width:20px;height:20px;stroke:var(--ink);fill:none;stroke-width:2}
+.aname{font-weight:700;font-size:15px}.arole{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:1px}
+.astat{margin-top:9px;font-family:var(--mono);font-size:11px;display:flex;align-items:center;gap:7px}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--mute);border:1.5px solid var(--bd)}
+.avote{position:absolute;top:11px;right:12px;font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 9px;border:2px solid var(--bd);border-radius:6px;background:var(--card)}
+.v-a{background:#8CE8B4}.v-r{background:#FFB4B4}
+[data-theme="dark"] .v-a{background:#134b2c;color:#8CE8B4}[data-theme="dark"] .v-r{background:#4b1616;color:#FFB4B4}
+.mid{display:grid;grid-template-columns:1fr 300px;gap:10px;flex:1;min-height:0}
+.office{border:2px solid var(--bd);border-radius:12px;overflow:hidden;background:#0A0B0F;box-shadow:5px 5px 0 var(--sh);position:relative}
+.office iframe{width:100%;height:100%;border:none}
+.office .tag{position:absolute;top:9px;left:11px;font-family:var(--mono);font-size:9px;font-weight:700;background:var(--card2);border:2px solid var(--bd);color:var(--ink);padding:3px 9px;border-radius:6px}
+.panel{border:2px solid var(--bd);border-radius:12px;background:var(--card);box-shadow:4px 4px 0 var(--sh);display:flex;flex-direction:column;min-height:0}
+.ptitle{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1.5px;padding:10px 12px;border-bottom:2px solid var(--bd);display:flex;justify-content:space-between;flex:none}
+#stream{flex:1;overflow-y:auto;padding:9px 11px;font-family:var(--mono);font-size:11px;line-height:1.6}
+.msg{margin-bottom:8px;border-left:3px solid var(--bd);padding-left:8px}
+.msg .who{font-weight:700;font-size:10px}.msg .tx{color:var(--dim);display:block}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;flex:none;height:120px}
+.metric{border:2px solid var(--bd);border-radius:12px;background:var(--card);padding:11px 13px;box-shadow:4px 4px 0 var(--sh);display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+.ml{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--dim)}
+.mv{font-family:var(--mono);font-size:20px;font-weight:700;margin-top:4px}
+.msub{font-family:var(--mono);font-size:10px;color:var(--dim)}
+.qbar{height:8px;border:2px solid var(--bd);border-radius:5px;overflow:hidden;margin-top:7px;background:var(--bg)}
+.qfill{height:100%;width:0;background:var(--amber);transition:width .4s}
+.txrow{font-family:var(--mono);font-size:10px;display:flex;justify-content:space-between;margin-top:3px;gap:6px}
+.btn{font-family:var(--mono);font-size:10px;font-weight:700;padding:7px 10px;border:2px solid var(--bd);border-radius:8px;cursor:pointer;background:var(--card2);box-shadow:3px 3px 0 var(--sh)}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--sh)}
+.btn.g{background:var(--card)}
+/* tables for onchain / x402 / agents views */
+.bigpanel{flex:1;min-height:0;overflow:auto;padding:14px}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+th{font-size:10px;letter-spacing:1.5px;color:var(--dim);text-align:left;padding:8px;border-bottom:2px solid var(--bd)}
+td{padding:9px 8px;border-bottom:1px solid var(--mute);vertical-align:top}
+.ok{color:var(--green);font-weight:700}.badge{font-size:9px;border:2px solid var(--bd);border-radius:6px;padding:2px 7px;font-weight:700;background:var(--card2)}
+.note{font-family:var(--mono);font-size:11px;color:var(--dim);background:var(--card4);border:2px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+.bigcard{border:2px solid var(--bd);border-radius:12px;padding:16px;box-shadow:4px 4px 0 var(--sh);margin-bottom:12px}
+.toasts{position:fixed;right:16px;bottom:16px;z-index:60;display:flex;flex-direction:column;gap:8px}
+.toast{border:2px solid var(--bd);border-radius:10px;background:var(--card);box-shadow:4px 4px 0 var(--sh);padding:10px 14px;font-family:var(--mono);font-size:11px;max-width:340px;animation:tin .25s}
+.toast.ok{background:#8CE8B4}.toast.warn{background:#FFB4B4}
+[data-theme="dark"] .toast.ok{background:#134b2c}[data-theme="dark"] .toast.warn{background:#4b1616}
+@keyframes tin{from{transform:translateY(12px);opacity:0}}
+.modalback{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:70;display:none;place-items:center}
+.modalback.on{display:grid}
+.modal{border:2px solid var(--bd);border-radius:14px;background:var(--card);box-shadow:6px 6px 0 var(--sh);min-width:320px;max-width:560px;max-height:80vh;overflow:auto}
+.modal .mh{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:2px solid var(--bd);font-weight:700}
+.modal .mb{padding:14px 16px;font-family:var(--mono);font-size:12px;word-break:break-all;line-height:1.7}
+.mclose{border:2px solid var(--bd);border-radius:8px;background:var(--card3);cursor:pointer;font-weight:700;padding:2px 10px;box-shadow:2px 2px 0 var(--sh)}
+.reason{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:8px;border-left:3px solid var(--bd);padding-left:9px}
+</style>
+</head>
+<body data-theme="light">
+<div class="app">
+  <div class="side">
+    <div class="logo"><div class="logobox"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.4"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="12" cy="12" r="3.2"/><path d="M12 4v3M12 17v3M4 12h3M17 12h3"/></svg></div><h1>AutonomyHQ</h1></div>
+    <div class="nav" id="nav">
+      <a class="on" data-v="dashboard"><svg width="15" height="15" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.2"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>Dashboard</a>
+      <a data-v="agents"><svg width="15" height="15" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.2"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17.5" cy="9.5" r="2.4"/></svg>Agents</a>
+      <a data-v="onchain"><svg width="15" height="15" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.2"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1.2 1.2"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 105.7 5.7l1.2-1.2"/></svg>On-chain</a>
+      <a data-v="x402"><svg width="15" height="15" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.2"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v10M9.2 9.4c0-1.1 1.2-1.9 2.8-1.9s2.8.8 2.8 1.9c0 2.9-5.6 1.7-5.6 4.7 0 1.2 1.2 2 2.8 2s2.8-.8 2.8-1.9"/></svg>x402</a>
+      <a data-v="feedback"><svg width="15" height="15" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.2"><path d="M21 11.5c0 4.1-4 7.5-9 7.5-1 0-2-.13-2.9-.38L4 20l1.3-3.1C3.9 15.6 3 13.6 3 11.5 3 7.4 7 4 12 4s9 3.4 9 7.5z"/></svg>Feedback <span id="fbBadge" style="display:none;margin-left:auto;background:var(--amber);color:#fff;border-radius:9px;font-size:9px;padding:1px 6px;font-family:var(--mono)">0</span></a>
+    </div>
+    <div class="spacer"></div>
+    <div class="toggle" onclick="flip()"><svg width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.2"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg><span id="tlabel">DARK MODE</span></div>
+  </div>
+
+  <div class="main">
+    <div class="hdr"><h2 id="vtitle">Mission Control</h2>
+      <div style="display:flex;gap:9px"><button class="btn" id="stopBtn" onclick="toggleAutonomy()" style="background:var(--card3)">⏸ STOP AGENTS</button><div class="pill"><span class="dot"></span><span id="conn">CONNECTING…</span></div><div class="pill">SWARM <span id="hq" style="color:var(--amber)">0/3</span></div></div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="view on" id="view-dashboard">
+      <div class="agents">
+        <div class="acard" id="card-risk-agent-01"><div class="arow"><div class="aicon"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 9.5C8 19.2 5 15.5 5 11V6l7-3z"/><path d="M9 12l2 2 4-4.5"/></svg></div><div><div class="aname">Risk</div><div class="arole">VOLATILITY · POOL HEALTH</div></div></div><div class="astat"><span class="sdot"></span><span class="st">idle · at desk</span></div><div class="avote vt">—</div></div>
+        <div class="acard c2" id="card-lc-agent-01"><div class="arow"><div class="aicon"><svg viewBox="0 0 24 24"><path d="M12 4v16M7 20h10M12 6L6 8m6-2l6 2"/><path d="M4 12l2-4 2 4a2.5 2.5 0 01-4 0zM16 12l2-4 2 4a2.5 2.5 0 01-4 0z"/></svg></div><div><div class="aname">Compliance</div><div class="arole">WHITELIST · KYC · ZK</div></div></div><div class="astat"><span class="sdot"></span><span class="st">idle · at desk</span></div><div class="avote vt">—</div></div>
+        <div class="acard c3" id="card-treasury-agent-01"><div class="arow"><div class="aicon"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="12" cy="12" r="3.4"/><path d="M12 10.2v3.6M20.5 9.5v5"/></svg></div><div><div class="aname">Treasury</div><div class="arole">EXECUTION · SIGNING</div></div></div><div class="astat"><span class="sdot"></span><span class="st">idle · at desk</span></div><div class="avote vt">—</div></div>
+      </div>
+      <div class="mid">
+        <div class="office"><iframe src="http://localhost:3100/"></iframe><div class="tag">AGENT OFFICE · LIVE</div><button class="btn g" style="position:absolute;top:7px;right:9px" onclick="fsOffice()" title="Fullscreen — use this to access the office Settings comfortably">⛶</button></div>
+        <div class="panel"><div class="ptitle"><span>SWARM STREAM</span><span style="color:var(--amber)">● LIVE</span></div><div id="stream"></div></div>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div><div class="ml">SWARM QUORUM</div><div class="mv" id="mq">0/3</div><div class="msub" id="mqs">idle</div></div><div class="qbar"><div class="qfill" id="qfill"></div></div></div>
+        <div class="metric"><div class="ml">PORTFOLIO · RWA</div><div class="mv" style="font-size:15px">$2,543,600</div><div class="txrow"><span>Gold</span><span style="color:var(--green)">+2.4%</span></div><div class="txrow"><span>Real Estate</span><span style="color:var(--red)">−0.8%</span></div></div>
+        <div class="metric"><div class="ml">x402 PAYMENTS</div><div class="mv" id="x402v" style="font-size:15px">0 tx</div><div class="msub" id="x402s">0.000 CSPR</div><div class="msub" style="font-size:8px;letter-spacing:1px;margin-top:2px">AUTONOMOUS &#183; HUMAN OVERRIDE:</div><button class="btn g" onclick="buyData()" title="The agents buy data themselves each meeting - use this only to intervene">BUY NOW</button></div>
+        <div class="metric"><div class="ml">SIGNED PROPOSALS</div><div id="txlist" style="margin-top:3px;font-family:var(--mono);font-size:10px;color:var(--dim)">awaiting…</div><div class="msub" style="font-size:8px;letter-spacing:1px;margin-top:2px">AUTONOMOUS &#183; HUMAN OVERRIDE:</div><button class="btn" onclick="trigger()" title="The swarm convenes on its own - use this only to force a meeting now">CONVENE NOW</button></div>
+      </div>
+    </div>
+
+    <!-- AGENTS -->
+    <div class="view" id="view-agents"><div class="panel bigpanel" id="agentsBig"></div></div>
+
+    <!-- ONCHAIN -->
+    <div class="view" id="view-onchain">
+      <div class="panel bigpanel">
+        <div class="bigcard" style="background:var(--card2);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><div style="font-weight:700;font-size:16px">AutonomyHQ Treasury — LIVE on Casper Testnet</div><div class="msub" style="margin-top:4px;word-break:break-all">package: hash-5f5bf585fe56fc504797a8f819aa7b2914d5ba95208a5c60a363ce57f1ccda58</div></div><a class="btn" style="text-decoration:none;color:var(--ink)" target="_blank" href="https://testnet.cspr.live/contract-package/5f5bf585fe56fc504797a8f819aa7b2914d5ba95208a5c60a363ce57f1ccda58">VIEW CONTRACT ↗</a></div><div class="msub" id="recStatus" style="margin-bottom:8px"></div><div class="note">Every row is a REAL swarm proposal (quorum + independently verified ed25519 signatures). Approved proposals are recorded ON-CHAIN: a real transaction calls execute_rebalance on the deployed contract. Click a recorded row to open the transaction on cspr.live.</div>
+        <table><thead><tr><th>TIME</th><th>PROPOSAL</th><th>ACTION</th><th>QUORUM</th><th>SIGNATURES</th><th>PROOF (ed25519)</th><th>ON-CHAIN</th></tr></thead><tbody id="chainRows"><tr><td colspan="7" style="color:var(--mute)">no proposals yet — click NEW PROPOSAL on the dashboard</td></tr></tbody></table>
+      </div>
+    </div>
+
+    <!-- FEEDBACK -->
+    <div class="view" id="view-feedback">
+      <div class="panel bigpanel">
+        <div class="note">After every sit-down, each agent leaves genuine retrospective feedback — what it checked, what it decided, and why. Save keeps it on the server (survives restarts).</div>
+        <div style="display:flex;gap:9px;margin-bottom:12px;flex-wrap:wrap">
+          <button class="btn" onclick="saveFeedback()">&#128190; SAVE ALL</button>
+          <button class="btn g" onclick="clearFeedback()">CLEAR LIVE</button>
+          <button class="btn g" onclick="toggleSaved()">&#128194; OPEN SAVED</button>
+        </div>
+        <div id="savedWrap" style="display:none"><div class="msub" style="margin-bottom:8px">SAVED FEEDBACK (persisted)</div><div id="savedList"></div><hr style="border:1px solid var(--bd);margin:12px 0"></div>
+        <div id="fbList"></div>
+      </div>
+    </div>
+
+    <!-- X402 -->
+    <div class="view" id="view-x402">
+      <div class="panel bigpanel">
+        <div class="note">Live ledger from the x402 gateway (:4021). BUY performs a REAL protocol round-trip (402, ed25519-signed payment, 200) and, when the recorder is online, settles with a REAL Casper Testnet transfer (2.5 CSPR carrier, the network minimum). Rows with on-chain settlements open cspr.live.</div>
+        <div style="display:flex;gap:10px;margin-bottom:12px;align-items:center"><button class="btn g" onclick="buyData()">&#9889; HUMAN OVERRIDE &#183; BUY DATA (agents buy autonomously)</button><span class="msub" id="x402view-total">0 payments</span></div>
+        <table><thead><tr><th>SETTLEMENT TX</th><th>AMOUNT</th><th>PAYER (ed25519)</th><th>RESOURCE</th></tr></thead><tbody id="ledgerRows"><tr><td colspan="4" style="color:var(--mute)">no payments yet</td></tr></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+<div class="modalback" id="modalback" onclick="if(event.target===this)closeModal()">
+  <div class="modal"><div class="mh"><span id="mtitle">Details</span><button class="mclose" onclick="closeModal()">✕</button></div><div class="mb" id="mbody"></div></div>
+</div>
+<script>
+const GATEWAY="http://127.0.0.1:4021", WS="ws://127.0.0.1:8080/ws/stream";
+const SWARM="http://127.0.0.1:8080", RECORDER="http://127.0.0.1:4030";
+const CONTRACT_PACKAGE="5f5bf585fe56fc504797a8f819aa7b2914d5ba95208a5c60a363ce57f1ccda58";
+const CSPR="https://testnet.cspr.live";
+const $=id=>document.getElementById(id);
+function toast(kind,text,ms){const t=document.createElement('div');t.className='toast '+(kind||'');t.textContent=text;
+  $('toasts').appendChild(t);setTimeout(()=>t.remove(),ms||4200);}
+function showModal(title,html){$('mtitle').textContent=title;$('mbody').innerHTML=html;$('modalback').classList.add('on');}
+window.closeModal=()=>$('modalback').classList.remove('on');
+window.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+function flip(){const b=document.body,d=b.dataset.theme==='dark';b.dataset.theme=d?'light':'dark';$('tlabel').textContent=d?'DARK MODE':'LIGHT MODE';}
+/* nav */
+const TITLES={dashboard:'Mission Control',agents:'Agents',onchain:'On-chain',x402:'x402 Micropayments',feedback:'Agent Feedback'};
+$('nav').addEventListener('click',e=>{const a=e.target.closest('a');if(!a)return;
+  document.querySelectorAll('#nav a').forEach(x=>x.classList.remove('on'));a.classList.add('on');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
+  $('view-'+a.dataset.v).classList.add('on');$('vtitle').textContent=TITLES[a.dataset.v];
+  if(a.dataset.v==='x402')refreshLedger();if(a.dataset.v==='onchain'){loadRecorded().then(()=>renderChain());fetch(RECORDER+'/chain/recorded').then(()=>$('recStatus').innerHTML='recorder <span class="ok">● ONLINE</span>').catch(()=>$('recStatus').innerHTML='recorder <span style="color:var(--red)">● OFFLINE — start Terminal RECORDER</span>');}if(a.dataset.v==='agents')renderAgents();if(a.dataset.v==='feedback'){fbUnread=0;updateFbBadge();renderFeedback();}});
+/* state */
+let approvals=0,proposals=[],lastReason={},feedbacks=[],fbUnread=0,recordedMap={},autonomous=true;
+const AG=[{id:'risk-agent-01',name:'Risk',role:'Analyzes volatility and pool depth before any move.'},
+ {id:'lc-agent-01',name:'Compliance',role:'Checks asset whitelist and KYC/ZK identity.'},
+ {id:'treasury-agent-01',name:'Treasury',role:'Checks headroom, signs and broadcasts on Casper.'}];
+function ts(){return new Date().toLocaleTimeString('en-GB')}
+function push(kind,text){const c={risk:'#2563EB','l&c':'#0E9F5D',treasury:'#FF6A1A',ok:'#0E9F5D',warn:'#D93636'}[kind]||'var(--dim)';
+  const who=({system:'swarm',ok:'casper',warn:'swarm'})[kind]||kind;
+  const d=document.createElement('div');d.className='msg';d.style.borderLeftColor=c;
+  d.innerHTML=`<span class="who" style="color:${c}">${who}</span> <span style="color:var(--mute);font-size:9px">${ts()}</span><span class="tx">${text}</span>`;
+  $('stream').appendChild(d);$('stream').scrollTop=1e9;while($('stream').children.length>60)$('stream').removeChild($('stream').firstChild);}
+function setQ(n,t){t=t||3;$('mq').textContent=n+'/'+t;$('hq').textContent=n+'/'+t;$('qfill').style.width=(n/t*100)+'%';}
+function setCard(id,txt,work,vote){const c=$('card-'+id);if(!c)return;c.querySelector('.st').textContent=txt;
+  c.querySelector('.sdot').style.background=work?'var(--amber)':'var(--mute)';
+  if(vote!==undefined){const vt=c.querySelector('.vt');vt.textContent=vote||'—';vt.className='avote vt '+(vote==='APPROVE'?'v-a':vote==='REJECT'?'v-r':'');}}
+/* swarm events */
+function handle(e){switch(e.type){
+ case 'HELLO':$('conn').textContent='SWARM · LIVE';break;
+ case 'PROPOSAL_OPENED':approvals=0;setQ(0);$('mqs').textContent='deliberating';
+   AG.forEach(a=>setCard(a.id,'walking to boardroom',true,'…'));
+   push('system',`Proposal ${e.action} · ${e.payload?.targetAsset||''}`);break;
+ case 'AGENT_VOTE':{const m={risk:'risk-agent-01','l&c':'lc-agent-01',treasury:'treasury-agent-01'};
+   const id=e.agentId||m[e.role];lastReason[id]=e.reasoning||'';
+   setCard(id,e.vote==='APPROVE'?'evaluated · approve':'evaluated · reject',false,e.vote);
+   if(e.vote==='APPROVE'){approvals++;setQ(approvals);}push(e.role,`${e.vote} — ${e.reasoning||''}`);break;}
+ case 'QUORUM_RESULT':setQ(e.approvals,e.required);
+   if(e.quorumMet){$('mqs').textContent='approved';setCard('treasury-agent-01','signing…',true,'APPROVE');
+     push('ok',`Quorum ${e.approvals}/${e.required} — signing`);}else{$('mqs').textContent='rejected';push('warn',`Quorum ${e.approvals}/${e.required} — rejected`);}break;
+ case 'DATA_DECISION':push(e.buy?'risk':'system',(e.llm?'\u{1F9E0} ':'')+(e.buy?'DECIDED to buy fresh data \u2014 ':'skipped data purchase \u2014 ')+e.reason);break;
+ case 'DATA_PURCHASED':push('ok',`\u{1F4B0} agents bought RWA data via x402 \u00b7 $${(e.valuationUSD||0).toLocaleString()} valuation \u00b7 ${e.onChain?'settled ON-CHAIN':'settled'} ${String(e.txHash||'').slice(0,10)}\u2026`);refreshLedger();break;
+ case 'MEETING_STARTED':push('system','🛋 '+(e.reason||'Agents convened in the living room'));
+   AG.forEach(a=>setCard(a.id,'🧠 thinking · living room',true,'…'));break;
+ case 'MEETING_ENDED':AG.forEach(a=>setCard(a.id,'idle · at desk',false));break;
+ case 'AGENT_FEEDBACK':feedbacks.unshift({role:e.role,text:e.text,t:Date.now()});
+   if(feedbacks.length>60)feedbacks.pop();fbUnread++;updateFbBadge();
+   push(e.role,'💬 '+e.text);break;
+ case 'SWARM_PAUSED':autonomous=false;syncStopBtn();push('warn','Autonomous meetings PAUSED');break;
+ case 'SWARM_RESUMED':autonomous=true;syncStopBtn();push('ok','Autonomous meetings RESUMED');break;
+ case 'PROPOSAL_FINALIZED':{proposals.unshift(e);if(proposals.length>50)proposals.pop();
+   if(e.quorumMet)recordOnChain(e.proposalId,e.approvals||3,false);
+   renderChain();renderMiniChain();
+   if(e.verified)push('ok',`proposal ${String(e.proposalId).slice(0,8)}… signed & verified ✓`);
+   AG.forEach(a=>setCard(a.id,'idle · at desk',false));break;}
+}}
+function goOnchain(){document.querySelector('#nav a[data-v="onchain"]').click();}
+function renderMiniChain(){const l=$('txlist');l.innerHTML='';proposals.slice(0,2).forEach(p=>{
+  const r=document.createElement('div');r.className='txrow';r.style.cursor='pointer';r.onclick=goOnchain;
+  r.innerHTML=`<span style="color:var(--mute)">${String(p.proposalId).slice(0,8)}…</span><span class="${p.verified?'ok':''}">${p.verified?'verified ✓':'unverified'}</span>`;l.appendChild(r);});}
+function renderChain(){const tb=$('chainRows');tb.innerHTML='';
+  if(!proposals.length){tb.innerHTML='<tr><td colspan="7" style="color:var(--mute)">no proposals yet</td></tr>';return;}
+  proposals.forEach((p,i)=>{const sigs=(p.signatures||[]);const proof=sigs[0]?String(sigs[0].cryptographicProof).slice(0,18)+'…':'—';
+    const rec=recordedMap[p.proposalId];
+    const chain=rec?`<a class="ok" style="cursor:pointer" href="${CSPR}/deploy/${rec}" target="_blank">tx ${rec.slice(0,10)}… ↗</a>`
+      :(p.quorumMet?`<button class="btn g" onclick="recordOnChain('${p.proposalId}',${p.approvals||3},true)">⛓ record</button>`:'—');
+    tb.insertAdjacentHTML('beforeend',`<tr style="cursor:pointer" onclick="toggleSigs(${i})"><td>${new Date((p.timestamp||0)*1000).toLocaleTimeString('en-GB')}</td><td>${String(p.proposalId).slice(0,13)}…</td><td><span class="badge">${p.action}</span></td><td>${p.quorumMet?`<span class="ok">MET ${p.approvals||''}/${p.required||3}</span>`:`<span style="color:var(--red)">REJECTED</span> <span class="msub">by ${(p.signatures||[]).filter(s=>s.vote==='REJECT').map(s=>s.role||'?').join(', ')||'—'}</span>`}</td><td>${sigs.length} ${p.verified?'<span class="ok">✓ verified</span>':''}</td><td style="color:var(--mute)">${proof}</td><td onclick="event.stopPropagation()">${chain}</td></tr>
+    <tr id="sigrow-${i}" style="display:none"><td colspan="7"><pre style="font-size:10px;white-space:pre-wrap;color:var(--dim);margin:4px 0">${JSON.stringify(sigs,null,1).replace(/</g,'&lt;')}</pre></td></tr>`);});}
+window.toggleSigs=i=>{const r=$('sigrow-'+i);if(r)r.style.display=r.style.display==='none'?'':'none';};
+async function recordOnChain(pid,approvals,force){try{
+  const r=await fetch(RECORDER+'/chain/record',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({proposalId:pid,approvals,force})});
+  const d=await r.json();
+  if(d.deployHash){recordedMap[pid]=d.deployHash;renderChain();
+    if(!d.cached){push('ok','⛓ recorded on Casper Testnet: '+d.deployHash.slice(0,12)+'…');toast('ok','⛓ REAL transaction sent — view it on cspr.live from the On-chain tab');}}
+  else if(d.error&&force)toast('warn','recorder: '+d.error);
+ }catch(e){if(force)toast('warn','recorder offline — check the RECORDER terminal');}}
+async function loadRecorded(){try{const r=await fetch(RECORDER+'/chain/recorded');const d=await r.json();recordedMap=d.recorded||{};}catch(e){}}
+function updateFbBadge(){const b=$('fbBadge');b.style.display=fbUnread>0?'inline':'none';b.textContent=fbUnread;}
+function renderFeedback(){const el=$('fbList');el.innerHTML='';
+  if(!feedbacks.length){el.innerHTML='<div class="msub">no feedback yet — it appears after each meeting</div>';return;}
+  const C={risk:'var(--card4)','l&c':'var(--card2)',treasury:'var(--card3)'};
+  feedbacks.forEach(f=>el.insertAdjacentHTML('beforeend',`<div class="bigcard" style="background:${C[f.role]||'var(--card)'};padding:11px 14px;margin-bottom:9px"><div style="display:flex;justify-content:space-between"><b style="text-transform:capitalize">${f.role}</b><span class="msub">${new Date(f.t).toLocaleTimeString('en-GB')}</span></div><div style="margin-top:5px;font-family:var(--mono);font-size:12px">${f.text}</div></div>`));}
+window.toggleAutonomy=async()=>{const target=!autonomous;
+  try{await fetch(SWARM+(target?'/swarm/start':'/swarm/stop'),{method:'POST'});
+    autonomous=target;syncStopBtn();
+    toast(target?'ok':'warn',target?'▶ Agents resumed — next sit-down within minutes':'⏸ Agents paused — no new deliberations (characters still stroll idly)');
+    if(!target)AG.forEach(a=>setCard(a.id,'paused',false,'—'));
+  }catch(e){toast('warn','swarm unreachable — is Terminal 1 running?');}};
+function syncStopBtn(){const b=$('stopBtn');b.textContent=autonomous?'⏸ STOP AGENTS':'▶ START AGENTS';b.style.background=autonomous?'var(--card3)':'var(--card2)';}
+window.fsOffice=()=>{const el=document.querySelector('.office');if(document.fullscreenElement)document.exitFullscreen();else el.requestFullscreen();};
+function renderAgents(){const el=$('agentsBig');el.innerHTML='';
+  AG.forEach((a,i)=>{const bg=['var(--card2)','var(--card3)','var(--card4)'][i];
+    el.insertAdjacentHTML('beforeend',`<div class="bigcard" style="background:${bg}"><div style="font-weight:700;font-size:18px">${a.name}</div><div class="msub" style="margin-top:3px">${a.role}</div><div class="reason"><b>last reasoning:</b> ${lastReason[a.id]||'— no deliberation yet —'}</div></div>`);});}
+/* REAL x402 */
+async function refreshLedger(){try{const r=await fetch(GATEWAY+'/x402/ledger');const d=await r.json();const led=d.ledger||[];
+  $('x402v').textContent=led.length+' tx';$('x402s').textContent=(led.length*0.025).toFixed(3)+' CSPR';
+  $('x402view-total').textContent=led.length+' payments · '+(led.length*0.025).toFixed(3)+' CSPR';
+  const tb=$('ledgerRows');tb.innerHTML='';
+  if(!led.length){tb.innerHTML='<tr><td colspan="4" style="color:var(--mute)">no payments yet</td></tr>';return;}
+  led.slice().reverse().forEach(x=>tb.insertAdjacentHTML('beforeend',`<tr style="cursor:pointer" onclick="if(this.dataset.chain==='1')window.open('https://testnet.cspr.live/deploy/'+this.dataset.tx.replace(/^0x/,''),'_blank');else showModal('x402 settlement','<b>tx</b><br>'+this.dataset.tx+'<br><br><b>payer (ed25519)</b><br>'+this.dataset.payer+'<br><br><b>amount</b><br>'+this.dataset.amt+' CSPR<br><br><i>internal settlement - recorder was offline</i>')" data-tx="${x.txHash}" data-payer="${x.payer}" data-amt="${x.amount}" data-chain="${x.onChain?1:0}"><td>${String(x.txHash).slice(0,16)}…</td><td>${x.amount} ${x.asset}</td><td style="color:var(--mute)">${String(x.payer).slice(0,14)}…</td><td style="color:var(--mute)">${String(x.resource).split('/').pop()}</td></tr>`));}catch(e){}}
+window.buyData=async()=>{push('system','x402 › requesting premium RWA data…');
+  try{const r=await fetch(GATEWAY+'/x402/purchase',{method:'POST'});const d=await r.json();
+    if(d.settlement){push('ok',`x402 › 402→signed→200 · settled ${String(d.settlement.txHash).slice(0,12)}… (${d.price} CSPR) · valuation $${(d.valuationUSD||0).toLocaleString()}`);if(d.settlement.onChain)toast('ok','x402 settled with a REAL Casper transfer — click the row to open it');refreshLedger();}
+    else push('warn','x402 error: '+(d.error||'unknown'));}
+  catch(e){push('warn','x402 gateway unreachable (is Terminal 2 running?)');}};
+/* WS */
+let ws;function connect(){try{ws=new WebSocket(WS);}catch(e){offline();return;}
+ ws.onopen=()=>$('conn').textContent='SWARM · LIVE';
+ ws.onmessage=m=>{try{handle(JSON.parse(m.data));}catch(e){}};
+ ws.onclose=()=>{$('conn').textContent='RECONNECTING…';setTimeout(connect,2000);};
+ ws.onerror=()=>offline();}
+function offline(){$('conn').textContent='OFFLINE — start Terminal 1';}
+window.trigger=()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({action:'REBALANCE'}));else offline();};
+window.saveFeedback=async()=>{try{const r=await fetch(SWARM+'/swarm/feedback/save',{method:'POST'});const d=await r.json();toast('ok','saved — '+d.saved+' entries on server');}catch(e){toast('warn','swarm unreachable');}};
+window.clearFeedback=async()=>{try{await fetch(SWARM+'/swarm/feedback/clear',{method:'POST'});feedbacks=[];renderFeedback();toast('ok','live feedback cleared');}catch(e){toast('warn','swarm unreachable');}};
+window.toggleSaved=async()=>{const w=$('savedWrap');if(w.style.display==='none'){try{const r=await fetch(SWARM+'/swarm/feedback/saved');const d=await r.json();const el=$('savedList');el.innerHTML='';
+  if(!(d.saved||[]).length)el.innerHTML='<div class="msub">nothing saved yet</div>';
+  const C={risk:'var(--card4)','l&c':'var(--card2)',treasury:'var(--card3)'};
+  (d.saved||[]).slice().reverse().forEach(f=>el.insertAdjacentHTML('beforeend',`<div class="bigcard" style="background:${C[f.role]||'var(--card)'};padding:10px 13px;margin-bottom:8px"><div style="display:flex;justify-content:space-between"><b style="text-transform:capitalize">${f.role} \u00b7 ${f.vote||''}</b><span class="msub">${new Date((f.ts||0)*1000).toLocaleString('en-GB')}</span></div><div style="margin-top:4px;font-family:var(--mono);font-size:12px">${f.text}</div></div>`));
+  w.style.display='block';}catch(e){toast('warn','swarm unreachable');}}else w.style.display='none';};
+async function loadHistory(){try{const r=await fetch(SWARM+'/swarm/history');const d=await r.json();
+  proposals=(d.proposals||[]).slice(0,50);
+  feedbacks=(d.feedback||[]).map(f=>({role:f.role,text:f.text,t:(f.ts||0)*1000}));
+  (d.stream||[]).slice(0,40).reverse().forEach(e=>{try{handle(e);}catch(_){}});
+  renderChain();renderMiniChain();
+ }catch(e){}}
+setInterval(()=>{loadRecorded().then(()=>{if(document.querySelector('#view-onchain.on'))renderChain();});},30000);
+connect();refreshLedger();loadRecorded().then(()=>loadHistory());syncStopBtn();fetch(SWARM+'/swarm/state').then(r=>r.json()).then(d=>{autonomous=!!d.running;syncStopBtn();}).catch(()=>{});
+</script>
+</body>
+</html>

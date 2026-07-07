@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>webview-ui</title>
+    <script type="module" crossorigin src="./assets/index-CO5rwQU0.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BegRjQzz.css">
+      <style>
+      /* AutonomyHQ fix: settings & sub-modals were taller than the viewport,
+         hiding the close button and preventing scroll. Cap + scroll them. */
+      div[class*="top-1/2"][class*="shadow-pixel"]{max-height:90vh !important;max-width:94vw !important;overflow-y:auto !important;}
+    </style>
+    <script>
+            /* AutonomyHQ: hide settings entries that need VS Code (no browser folder picker) */
+      new MutationObserver(function(){
+        document.querySelectorAll('div,section').forEach(function(n){
+          if(n.dataset.ahqHidden)return;
+          var t=(n.textContent||'');
+          if(t.length<200 && /asset director/i.test(t) && n.querySelector('button')){
+            n.style.display='none'; n.dataset.ahqHidden='1';
+          }
+        });
+      }).observe(document.body||document.documentElement,{childList:true,subtree:true});
+      /* AutonomyHQ fix: Escape always closes the topmost overlay */
+      window.addEventListener('keydown', function(e){
+        if(e.key !== 'Escape') return;
+        var backs = document.querySelectorAll('div.fixed.inset-0');
+        if(backs.length) backs[backs.length-1].click();
+      });
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

@@ -1,0 +1,27 @@
+# Athanor Contracts — AI-readable capability map
+# Lets the swarm read structural capabilities for autonomous deployment.
+
+contract: AthanorTreasury
+framework: odra 2.x
+network: casper-test
+entry_points:
+  - init(agents: Vec<Address>, required_sigs: u8)
+  - execute_rebalance(proposal_id: String, token: Address, destination: Address, amount: U256, approvals: u8)
+  - deposit(token: Address, amount: U256)
+  - set_operational(active: bool)  # admin only
+  - register_agent(agent: Address) # admin only
+views:
+  - is_agent(agent) -> bool
+  - balance_of(token) -> U256
+  - required_signatures() -> u8
+  - is_operational() -> bool
+  - rebalance_count() -> u64
+events:
+  - RebalanceExecuted { proposal_id, token, destination, amount, approvals }
+  - OperationalStatusChanged { active }
+governance:
+  quorum_rule: approvals >= required_signatures
+  mirrors: apps/swarm-orchestrator ConsensusEngine.required_signatures
+build: cargo odra build -b casper
+test: cargo odra test
+deploy: scripts/deploy_testnet.sh <secret_key.pem>

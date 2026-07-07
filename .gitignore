@@ -1,0 +1,21 @@
+# ===== SECRETS — never commit =====
+deploy-kit/keys/
+*.pem
+.env
+.env.*
+
+# dependencies & build artifacts
+node_modules/
+target/
+__pycache__/
+*.pyc
+contracts/wasm/*.wasm
+
+# runtime state
+saved_feedback.json
+.pixel-agents/
+*.log
+history.json
+autonomy_state.json
+recorded.json
+server.json

@@ -1,0 +1,6 @@
+{
+  "name": "autonomyhq-deploy-kit",
+  "private": true,
+  "type": "module",
+  "dependencies": { "casper-js-sdk": "^5.0.0" }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@athanor/office",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Athanor pixel-office (fork of pablodelucca/pixel-agents, MIT) wired to the Athanor swarm",
+  "scripts": {
+    "office": "node dist/cli.js",
+    "bridge": "node athanor-bridge.mjs"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@fastify/static": "^9.1.1",
+    "@fastify/websocket": "^11.2.0",
+    "fastify": "^5.8.5",
+    "ws": "^8.21.0"
+  }
+}

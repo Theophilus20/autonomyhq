@@ -64,15 +64,13 @@ Proposal history, transactions, activity logs, feedback, and the pause state are
 
 The dashboard brings everything together in one place. You can see the live agent cards, the pixel office, the reasoning stream, quorum status, payment counters, and signed proposals. The sidebar gives access to Dashboard, Agents, On-chain, x402, and Feedback. Social and support links are at the bottom. The portfolio values are just placeholders for the demo. Inside the office you can drag with the middle mouse button to move around, use the zoom buttons to zoom in or out, and switch to fullscreen with the square button.
 
-## Architecture
-
-```
-Swarm Orchestrator   Python FastAPI    agents, consensus, signatures, history
-Data Mesh Gateway    Node Express      x402 data market, also serves the dashboard
-Recorder             Node              holds the operator key, submits transactions
-Pixel Office         Node Fastify      the visual world, a fork of Pixel Agents
-Bridge               Node              maps swarm events to character behavior
-```
+| Service | Stack | Role |
+|---|---|---|
+| Swarm Orchestrator | Python, FastAPI | agents, consensus, signatures, history |
+| Data Mesh Gateway | Node, Express | x402 data market, also serves the dashboard |
+| Recorder | Node | holds the operator key, submits transactions |
+| Pixel Office | Node, Fastify | the visual world, a fork of Pixel Agents |
+| Bridge | Node | maps swarm events to character behavior |
 
 The swarm broadcasts every event through WebSocket. The Bridge listens for those events and turns them into character actions inside the pixel office. The Recorder is the only service that interacts with the blockchain. The treasury contract is written in Rust using Odra 2.4 and keeps track of the registered agent keys together with the required quorum threshold.
 

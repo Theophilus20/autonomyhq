@@ -9,6 +9,13 @@ Exposes:
 The WebSocket is what powers the frontend's "Swarm Debate Terminal": every
 AGENT_VOTE / QUORUM_RESULT event is pushed as it happens so the UI renders the
 agents deliberating in real time.
+
+Meetings are PACED so the pixel office has time to animate them, and every
+phase checks the RUNNING flag so STOP AGENTS takes effect within seconds.
+Tunable via env vars:
+  MEETING_WALK_SECONDS  (default 8)  — time for sprites to walk to the living room
+  MEETING_VOTE_SECONDS  (default 6)  — visible "thinking" time per agent vote
+  MEETING_BEAT_SECONDS  (default 4)  — pause between meeting phases
 """
 from __future__ import annotations
 
@@ -36,6 +43,11 @@ DEFAULT_CONTEXT = {
     "treasury_headroom": 0.40,
     "execution_path": ["risk", "l&c", "treasury", "casper-testnet"],
 }
+
+# ---- meeting pacing (seconds) ----
+WALK_SECONDS = float(os.environ.get("MEETING_WALK_SECONDS", "8"))
+VOTE_SECONDS = float(os.environ.get("MEETING_VOTE_SECONDS", "6"))
+BEAT_SECONDS = float(os.environ.get("MEETING_BEAT_SECONDS", "4"))
 
 
 class Hub:
@@ -98,7 +110,7 @@ class DeliberateRequest(BaseModel):
     context: dict | None = None
 
 
-def _run_swarm(action: str, context: dict, loop=None):
+def _run_swarm(action: str, context: dict, loop=None, force: bool = False):
     context = dict(context or {})
     context.setdefault("action", action)
     # aliases so the LLM fallback rules see consistent keys
@@ -115,7 +127,13 @@ def _run_swarm(action: str, context: dict, loop=None):
         if loop:
             asyncio.run_coroutine_threadsafe(hub.broadcast(evt), loop)
 
-    result = engine.run(action, context, on_event=on_event)
+    result = engine.run(
+        action,
+        context,
+        on_event=on_event,
+        pace=VOTE_SECONDS,
+        should_continue=lambda: RUNNING["autonomous"] or force,
+    )
     result["verified"] = ConsensusEngine.verify_event(result)
     # Broadcast the finalized, signed proposal on EVERY run path (WS trigger,
     # auto loop, and POST) so dashboards always receive the real signatures.
@@ -193,7 +211,9 @@ async def swarm_state():
 @app.post("/swarm/deliberate")
 async def deliberate(req: DeliberateRequest):
     context = req.context or DEFAULT_CONTEXT
-    return await _meeting(req.action, context, "manual trigger — deliberate now")
+    # force=True: this is an explicit human override, runs even when stopped
+    return await _meeting(req.action, context, "manual trigger — deliberate now",
+                          force=True)
 
 
 @app.websocket("/ws/stream")
@@ -208,8 +228,9 @@ async def ws_stream(ws: WebSocket):
                 payload = json.loads(msg)
             except json.JSONDecodeError:
                 payload = {"action": "REBALANCE"}
+            # force=True: CONVENE NOW is a human override, runs even when stopped
             await _meeting(payload.get("action", "REBALANCE"), DEFAULT_CONTEXT,
-                           "manual trigger — new proposal")
+                           "manual trigger — new proposal", force=True)
     except WebSocketDisconnect:
         hub.disconnect(ws)
 
@@ -263,6 +284,7 @@ def _remember(kind: str, item: dict, cap: int = 200):
     del HISTORY[kind][cap:]
     _persist_history()
 
+
 def _buy_market_data() -> dict | None:
     """The swarm autonomously purchases premium RWA data over x402 before
     deliberating — a real 402 -> signed-payment -> 200 round-trip."""
@@ -276,17 +298,43 @@ def _buy_market_data() -> dict | None:
         return None
 
 
-async def _meeting(action: str, context: dict, reason: str):
-    """A full 'sit-down': buy data (x402) -> convene -> deliberate -> feedback."""
+async def _meeting(action: str, context: dict, reason: str, force: bool = False):
+    """A full 'sit-down': convene -> walk over -> buy data (x402) ->
+    deliberate -> feedback -> disperse.
+
+    Paced so the pixel office can animate every phase, and stoppable: the
+    RUNNING flag is checked at every phase boundary, so STOP AGENTS takes
+    effect within a few seconds instead of after the whole meeting.
+    Manual triggers pass force=True (human override) and always run.
+    """
+    def stopped():
+        return not RUNNING["autonomous"] and not force
+
+    if stopped():
+        return {"skipped": True, "reason": "agents are stopped"}
+
     loop = asyncio.get_running_loop()
+    context = dict(context)
+
     await hub.broadcast({"type": "MEETING_STARTED", "reason": reason, "action": action})
+    # Give the sprites time to actually walk to the living room.
+    await asyncio.sleep(WALK_SECONDS)
+    if stopped():
+        await hub.broadcast({"type": "MEETING_ENDED", "action": action})
+        return {"skipped": True, "reason": "stopped during convene"}
+
+    # Phase 1 — the Risk agent decides whether to buy fresh data.
     from agents.reasoning import decide_purchase
     decision = await asyncio.to_thread(decide_purchase, context)
     await hub.broadcast({"type": "DATA_DECISION", "buy": decision["buy"],
                          "reason": decision["reason"], "llm": decision.get("llm", False)})
-    purchase = await asyncio.to_thread(_buy_market_data) if decision["buy"] else None
+    await asyncio.sleep(BEAT_SECONDS)
+
+    # Phase 2 — the actual x402 purchase, if decided (and not stopped meanwhile).
+    purchase = None
+    if decision["buy"] and not stopped():
+        purchase = await asyncio.to_thread(_buy_market_data)
     if purchase and purchase.get("settlement"):
-        context = dict(context)
         context["purchased_rwa_valuation_usd"] = purchase.get("valuationUSD")
         await hub.broadcast({
             "type": "DATA_PURCHASED",
@@ -295,25 +343,40 @@ async def _meeting(action: str, context: dict, reason: str):
             "valuationUSD": purchase.get("valuationUSD"),
             "price": purchase.get("price"),
         })
-    result, events = await asyncio.to_thread(_run_swarm, action, context, loop)
+        await asyncio.sleep(BEAT_SECONDS)
+
+    if stopped():
+        await hub.broadcast({"type": "MEETING_ENDED", "action": action})
+        return {"skipped": True, "reason": "stopped before deliberation"}
+
+    # Phase 3 — the paced deliberation itself (each vote takes VOTE_SECONDS).
+    result, events = await asyncio.to_thread(_run_swarm, action, context, loop, force)
     _remember("proposals", {"type": "PROPOSAL_FINALIZED", **result})
-    try:
-        from agents.reasoning import feedback as agent_feedback
-        reasonings = {e.get("role"): e.get("reasoning", "") for e in events
-                      if e.get("type") == "AGENT_VOTE"}
-        async def _one(role):
-            vote = next((s.get("vote", "APPROVE") for s in result.get("signatures", [])
-                         if s.get("role") == role), "APPROVE")
-            text = await asyncio.to_thread(agent_feedback, role, action, vote,
-                                           reasonings.get(role, ""))
-            fb = {"role": role, "text": text, "ts": time.time(),
-                  "proposalId": result.get("proposalId"), "vote": vote}
-            _remember("feedback", fb)
-            await hub.broadcast({"type": "AGENT_FEEDBACK", **fb})
-        # run the three retrospectives concurrently instead of one by one
-        await asyncio.gather(*[_one(r) for r in ("risk", "l&c", "treasury")])
-    except Exception:
-        pass
+    await asyncio.sleep(BEAT_SECONDS)  # let the quorum result breathe
+
+    # Phase 4 — retrospective feedback (skipped if the operator stopped things).
+    if not stopped():
+        try:
+            from agents.reasoning import feedback as agent_feedback
+            reasonings = {e.get("role"): e.get("reasoning", "") for e in events
+                          if e.get("type") == "AGENT_VOTE"}
+
+            async def _one(role):
+                vote = next((s.get("vote", "APPROVE") for s in result.get("signatures", [])
+                             if s.get("role") == role), "APPROVE")
+                text = await asyncio.to_thread(agent_feedback, role, action, vote,
+                                               reasonings.get(role, ""))
+                fb = {"role": role, "text": text, "ts": time.time(),
+                      "proposalId": result.get("proposalId"), "vote": vote}
+                _remember("feedback", fb)
+                await hub.broadcast({"type": "AGENT_FEEDBACK", **fb})
+
+            # run the three retrospectives concurrently instead of one by one
+            await asyncio.gather(*[_one(r) for r in ("risk", "l&c", "treasury")])
+        except Exception:
+            pass
+        await asyncio.sleep(BEAT_SECONDS)
+
     await hub.broadcast({"type": "MEETING_ENDED", "action": action})
     return result
 
@@ -337,7 +400,10 @@ async def _auto_loop():
                 await _meeting("REBALANCE", ctx, reason)
         except Exception:
             pass
-        await asyncio.sleep(random.randint(lo, hi))
+        # While stopped, poll every 2s so pressing START resumes quickly
+        # instead of waiting out a full 45-90s sleep.
+        wait = random.randint(lo, hi) if RUNNING["autonomous"] else 2
+        await asyncio.sleep(wait)
 
 
 if __name__ == "__main__":

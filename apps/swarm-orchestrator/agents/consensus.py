@@ -7,6 +7,10 @@ shared/schemas/swarm_proposal_event.json.
 
 The quorum threshold here mirrors `required_signatures` in the on-chain
 AthanorTreasury contract: the same governance rule enforced in two places.
+
+The vote loop supports pacing (visible per-agent "thinking" time so the pixel
+office can animate the deliberation) and an interruption hook (so an operator
+pressing STOP AGENTS halts the round mid-deliberation).
 """
 from __future__ import annotations
 
@@ -28,8 +32,17 @@ class ConsensusEngine:
         action: str,
         context: dict[str, Any],
         on_event: Optional[Callable[[dict], None]] = None,
+        pace: float = 0.0,
+        should_continue: Optional[Callable[[], bool]] = None,
     ) -> dict[str, Any]:
-        """Execute a full swarm deliberation and return a SwarmProposalEvent dict."""
+        """Execute a full swarm deliberation and return a SwarmProposalEvent dict.
+
+        pace            seconds of visible "thinking" before each vote (0 = instant,
+                        the old behaviour).
+        should_continue callable checked before each vote; returning False aborts
+                        the remaining votes (operator pressed STOP). Agents that
+                        did not vote count as absent, so quorum simply fails.
+        """
         proposal_id = str(uuid.uuid4())
         payload = {
             "targetAsset": context.get("target_asset", "UNKNOWN"),
@@ -46,12 +59,26 @@ class ConsensusEngine:
 
         signatures = []
         approvals = 0
+        aborted = False
         for agent in self.agents:
+            if should_continue and not should_continue():
+                aborted = True
+                break  # operator hit STOP mid-deliberation
+
             emit(
                 "AGENT_THINKING",
                 agentId=getattr(agent.identity, "agent_id", None) or getattr(agent, "agent_id", "agent"),
                 role=getattr(agent, "role", "agent"),
             )
+            if pace > 0:
+                # Visible deliberation time so the office animation can show
+                # the agent thinking before its vote lands.
+                time.sleep(pace)
+
+            if should_continue and not should_continue():
+                aborted = True
+                break
+
             vote = agent.vote_on(payload, context)
             reasoning = enrich(getattr(agent, "role", "agent"), vote.vote, vote.rationale, context)
             emit(
@@ -74,7 +101,7 @@ class ConsensusEngine:
                 }
             )
 
-        quorum_met = approvals >= self.required_signatures
+        quorum_met = (not aborted) and approvals >= self.required_signatures
         emit(
             "QUORUM_RESULT",
             approvals=approvals,
@@ -90,6 +117,8 @@ class ConsensusEngine:
             "signatures": signatures,
             "quorumMet": quorum_met,
         }
+        if aborted:
+            event["aborted"] = True
         return event
 
     @staticmethod

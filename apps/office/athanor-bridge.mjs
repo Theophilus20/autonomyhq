@@ -57,6 +57,8 @@ const NICE = {
   "treasury-agent-01": "Treasury",
 };
 const spawned = new Set();
+const activeTool = {};
+let officeRunning = false;
 
 async function hook(event) {
   try {
@@ -85,12 +87,21 @@ async function ensureSpawned(agentId) {
   console.log(`[bridge] spawned ${NICE[agentId]} in the office`);
 }
 
-async function toolCycle(agentId, toolName, ms = 1400) {
+async function toolCycle(agentId, toolName, ms = 100) {
   const sid = SESS[agentId];
   const toolId = `athanor-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-  await hook({ hook_event_name: "PreToolUse", session_id: sid, tool_name: toolName, tool_id: toolId });
-  await new Promise((r) => setTimeout(r, ms));
-  await hook({ hook_event_name: "PostToolUse", session_id: sid, tool_name: toolName, tool_id: toolId });
+  activeTool[agentId] = { toolId, toolName };
+
+  await hook({
+    hook_event_name: "PreToolUse",
+    session_id: sid,
+    tool_name: toolName,
+    tool_id: toolId
+  });
+
+  await new Promise(r => setTimeout(r, ms));
+
+  // No PostToolUse
 }
 
 async function say(agentId, text) {
@@ -106,101 +117,196 @@ async function stop(agentId) {
   await hook({ hook_event_name: "Stop", session_id: SESS[agentId] });
 }
 
-// Agents "work at their computers" between meetings: a rolling tool cycle
-// keeps each character seated at its desk, typing. Meetings interrupt work:
-// everyone stands up (idle/walk) while the swarm deliberates, then returns.
+
 const workTimers = {};
 let inMeeting = false;
 let swarmPaused = false;
+
 function startWork(id) {
   stopWork(id);
-  const tick = async () => { if (!inMeeting && !swarmPaused) { try { await toolCycle(id, "work_at_desk", 6000); } catch (e) {} } };
+
+  const tick = async () => {
+    if (inMeeting || swarmPaused) return;
+
+    let tool = "work_at_desk";
+
+    if (id === "risk-agent-01") tool = "evaluate_market_risk";
+    else if (id === "lc-agent-01") tool = "verify_compliance";
+    else if (id === "treasury-agent-01") tool = "compute_allocation";
+
+    try { await toolCycle(id, tool, 100); }
+    catch {}
+  };
+
   tick();
   workTimers[id] = setInterval(tick, 8000);
 }
-function stopWork(id) { if (workTimers[id]) { clearInterval(workTimers[id]); delete workTimers[id]; } }
+function stopWork(id) {
+  if (!workTimers[id]) return;
+  clearInterval(workTimers[id]);
+  delete workTimers[id];
+}
 
 const TOOL_FOR = {
   risk: "evaluate_market_risk",
   "l&c": "verify_compliance",
-  treasury: "compute_allocation",
+  treasury: "compute_allocation"
 };
+async function startOffice() {
+  officeRunning = true;
 
+  await Promise.all(
+    Object.keys(SESS).map(async id => {
+      await ensureSpawned(id);
+      startWork(id);
+    })
+  );
+
+  console.log("[bridge] office started");
+}
+
+async function stopOffice() {
+  officeRunning = false;
+
+  await Promise.all(
+    Object.keys(SESS).map(async id => {
+      stopWork(id);
+      await stop(id);
+    })
+  );
+
+  console.log("[bridge] office stopped");
+}
 async function handle(evt) {
+  if (!officeRunning && evt.type !== "HELLO") return;
+
   switch (evt.type) {
     case "SWARM_PAUSED": {
-      swarmPaused = true; inMeeting = false;
-      for (const id of Object.keys(SESS)) { try { await stop(id); await say(id, "paused"); } catch (e) {} }
-      break;
-    }
-    case "SWARM_RESUMED": {
-      swarmPaused = false;
-      for (const id of Object.keys(SESS)) { try { await say(id, "back to work"); } catch (e) {} }
-      break;
-    }
-    case "MEETING_STARTED": {
-      // meeting: everyone STANDS UP from their computer and gathers
-      inMeeting = true;
-      for (const id of Object.keys(SESS)) {
-        await ensureSpawned(id);
-        stopWork(id);
-        await stop(id); // stand up -> walk around (gathering)
-        await say(id, evt.reason || "Meeting time");
-      }
-      break;
-    }
-    case "MEETING_ENDED": {
-      // back to work: everyone returns to their computer
-      inMeeting = false;
-      for (const id of Object.keys(SESS)) startWork(id);
-      break;
-    }
-    case "HELLO":
-      console.log("[bridge] connected to swarm; office ready");
-      for (const id of Object.keys(SESS)) { await ensureSpawned(id); startWork(id); }
-      break;
+  swarmPaused = true;
+  inMeeting = false;
 
-    case "PROPOSAL_OPENED": {
-      for (const id of Object.keys(SESS)) {
-        await ensureSpawned(id);
-        await say(id, `Proposal ${evt.action} — heading to the boardroom`);
-      }
-      break;
-    }
+  for (const id of Object.keys(SESS)) {
+    stopWork(id);
+    try { await stop(id); await say(id, "paused"); } catch {}
+  }
+  break;
+}
 
-    case "AGENT_THINKING": {
-      // fires the moment the agent's REAL LLM call starts — body syncs to brain
-      const tid = evt.agentId;
-      if (tid) { await ensureSpawned(tid); await say(tid, "🧠 thinking…"); }
-      break;
-    }
-    case "AGENT_VOTE": {
-      const id = evt.agentId;
-      if (!SESS[id]) break;
-      await ensureSpawned(id);
-      // standing vote during the meeting — speech bubble only
-      await say(id, `${evt.vote}: ${evt.reasoning || ""}`.slice(0, 140));
-      break;
-    }
+case "SWARM_RESUMED": {
+  swarmPaused = false;
+  for (const id of Object.keys(SESS)) startWork(id);
+  break;
+}
 
-    case "QUORUM_RESULT": {
-      if (evt.quorumMet) {
-        const t = "treasury-agent-01";
-        await say(t, `Quorum ${evt.approvals}/${evt.required} — signing on Casper`);
-        await toolCycle(t, "sign_and_broadcast_casper", 2400);
-        await say(t, "Broadcast accepted ✓ on Casper Testnet");
-      } else {
-        await say("treasury-agent-01", `Quorum ${evt.approvals}/${evt.required} — rejected, no execution`);
-      }
-      // end turn -> characters return to idle/desks
-      setTimeout(() => { for (const id of Object.keys(SESS)) stop(id); }, 1500);
-      break;
-    }
+case "MEETING_STARTED": {
+  inMeeting = true;
 
-    case "PROPOSAL_FINALIZED": {
-      if (evt.verified) await say("treasury-agent-01", "Signatures verified ✓");
-      break;
-    }
+  await Promise.all(Object.keys(SESS).map(async id => {
+    await ensureSpawned(id);
+    stopWork(id);
+
+    // Close out whatever desk tool was mid-flight.
+    await hook({
+      hook_event_name: "PostToolUse",
+      session_id: SESS[id],
+      tool_name: activeTool[id]?.toolName || "work_at_desk",
+      tool_id: activeTool[id]?.toolId || `meeting-${Date.now()}`
+    });
+    delete activeTool[id];
+
+    // Actually send them to the meeting: desk work is only ever visible in
+    // the office because startWork()/toolCycle() fires a PreToolUse with a
+    // per-agent tool name. The meeting never did the equivalent, so the
+    // office had nothing to animate. This is the same mechanism, with a
+    // shared tool name so the three agents are recognized as converging on
+    // one activity/location instead of three separate desk jobs.
+    await toolCycle(id, "attend_living_room_meeting", 300);
+
+    // NOTE: we deliberately do NOT call stop(id) here anymore. Stop is the
+    // Claude-Code "session/turn ended" signal and was firing before the
+    // meeting notification even went out — almost certainly the reason the
+    // office showed nothing but a stopped/idle character instead of a
+    // meeting in progress. We only stop for real once the meeting ends.
+    await say(id, evt.reason || "Meeting time");
+  }));
+
+  break;
+}
+
+case "MEETING_ENDED": {
+  inMeeting = false;
+
+  await Promise.all(
+    Object.keys(SESS).map(async id => {
+      await stop(id);
+      startWork(id);
+    })
+  );
+
+  break;
+}
+    case "HELLO": {
+  console.log("[bridge] connected to swarm; office ready");
+
+  for (const id of Object.keys(SESS)) {
+    await ensureSpawned(id);
+    startWork(id);
+  }
+
+  break;
+}
+
+case "PROPOSAL_OPENED": {
+  await Promise.all(
+  Object.keys(SESS).map(async id => {
+    await ensureSpawned(id);
+    await say(id, `Proposal ${evt.action} — heading to the boardroom`);
+  })
+);
+  break;
+}
+
+case "AGENT_THINKING": {
+  const id = evt.agentId;
+  if (!SESS[id]) break;
+
+  await ensureSpawned(id);
+  await say(id, "🧠 thinking…");
+  break;
+}
+
+case "AGENT_VOTE": {
+  const id = evt.agentId;
+  if (!SESS[id]) break;
+
+  await ensureSpawned(id);
+  await say(id, `${evt.vote}: ${evt.reasoning || ""}`);
+  break;
+}
+
+case "QUORUM_RESULT": {
+  if (evt.quorumMet) {
+    const id = "treasury-agent-01";
+
+    await say(id, `Quorum ${evt.approvals}/${evt.required} — signing on Casper`);
+    await toolCycle(id, "sign_and_broadcast_casper", 2400);
+    await say(id, "Broadcast accepted ✓ on Casper Testnet");
+  } else {
+    await say("treasury-agent-01", `Quorum ${evt.approvals}/${evt.required} — rejected, no execution`);
+  }
+
+  for (const id of Object.keys(SESS)) {
+  stop(id);
+  startWork(id);
+}
+
+  break;
+}
+
+case "PROPOSAL_FINALIZED": {
+  if (evt.verified) await say("treasury-agent-01", "Signatures verified ✓");
+  break;
+}
   }
 }
 

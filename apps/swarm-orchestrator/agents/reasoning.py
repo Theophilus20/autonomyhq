@@ -31,6 +31,25 @@ ROLE_PROMPTS = {
     ),
 }
 
+
+def _smart_truncate(text: str, limit: int) -> str:
+    """Trim to at most `limit` chars without severing a word mid-token.
+
+    A plain text[:limit] slice (the old behaviour) chops wherever the Nth
+    character happens to land, which is almost always mid-word. This backs
+    off to the last whole-word boundary and marks the cut with an ellipsis
+    so a truncation is visible instead of silently amputating a sentence.
+    """
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    last_space = cut.rfind(" ")
+    if last_space > limit * 0.6:
+        cut = cut[:last_space]
+    return cut.rstrip(" ,;:") + "…"
+
+
 def _fallback(role: str, action: str, context: dict) -> dict:
     sigma = context.get("volatilitySigma", 0.22)
     depth = context.get("poolDepthUSD", 120_000)
@@ -45,6 +64,7 @@ def _fallback(role: str, action: str, context: dict) -> dict:
         ok = delta <= 0.25
         why = f"Delta {delta} {'within cap' if ok else 'exceeds cap'}; treasury headroom {context.get('headroom',0.40)} sufficient."
     return {"vote": "APPROVE" if ok else "REJECT", "reasoning": why, "llm": False}
+
 
 def think(role: str, action: str, context: dict, timeout: float = 25.0) -> dict:
     """Return {vote, reasoning, llm} — llm=True when a real model call succeeded."""
@@ -62,7 +82,11 @@ def think(role: str, action: str, context: dict, timeout: float = 25.0) -> dict:
         )
         body = json.dumps({
             "model": MODEL,
-            "max_tokens": 120,
+            # Raised from 120 -> 220: with the JSON wrapper overhead, two full
+            # sentences citing specific numbers routinely ran past 120 tokens
+            # and got cut mid-completion by the model itself. This gives that
+            # instruction enough room to actually finish.
+            "max_tokens": 220,
             "temperature": 0.4,
             "messages": [{"role": "user", "content": prompt}],
         }).encode()
@@ -77,19 +101,28 @@ def think(role: str, action: str, context: dict, timeout: float = 25.0) -> dict:
             text = text.strip("`").replace("json\n", "", 1).strip()
         parsed = json.loads(text)
         vote = "APPROVE" if str(parsed.get("vote", "")).upper().startswith("A") else "REJECT"
-        reasoning = str(parsed.get("reasoning", ""))[:280] or "(no reasoning returned)"
+        # This [:280] hard slice was the actual bug: it landed mid-word on
+        # any reasoning longer than 280 chars (which is most of them, since
+        # 220 tokens can easily produce 500+ chars of English text). Now a
+        # word-safe truncate with a much higher ceiling.
+        reasoning = _smart_truncate(str(parsed.get("reasoning", "")), 500) or "(no reasoning returned)"
         return {"vote": vote, "reasoning": reasoning, "llm": True}
     except Exception as e:  # noqa: BLE001 — any failure means fallback, never freeze
         fb = _fallback(role, action, context)
         fb["reasoning"] += f" [rule-based fallback: {type(e).__name__}]"
         return fb
 
+
 def feedback(role: str, action: str, vote: str, reasoning: str = "", timeout: float = 20.0) -> str:
     """One-sentence post-meeting feedback from the agent (LLM, with fallback)."""
     if API_KEY:
         try:
             body = json.dumps({
-                "model": MODEL, "max_tokens": 60, "temperature": 0.7,
+                # Raised from 60 -> 130: 60 tokens is tight for "one sentence
+                # that states what you checked, the decision, and what to
+                # monitor next" — that's three clauses, and it was getting
+                # clipped by the same [:240] mid-word slice below.
+                "model": MODEL, "max_tokens": 130, "temperature": 0.7,
                 "messages": [{
                     "role": "user",
                     "content": (
@@ -107,7 +140,7 @@ def feedback(role: str, action: str, vote: str, reasoning: str = "", timeout: fl
             )
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 data = json.loads(r.read().decode())
-            return data["choices"][0]["message"]["content"].strip()[:240]
+            return _smart_truncate(data["choices"][0]["message"]["content"], 400)
         except Exception:
             pass
     # Grounded fallback: reference the actual decision and reasoning taken.
@@ -149,7 +182,7 @@ def decide_purchase(context: dict, timeout: float = 20.0) -> dict:
             if text.startswith("```"):
                 text = text.strip("`").replace("json\n", "", 1).strip()
             parsed = json.loads(text)
-            return {"buy": bool(parsed.get("buy")), "reason": str(parsed.get("reason", ""))[:200], "llm": True}
+            return {"buy": bool(parsed.get("buy")), "reason": _smart_truncate(str(parsed.get("reason", "")), 220), "llm": True}
         except Exception:
             pass
     vol = float(context.get("volatility", 0.2))

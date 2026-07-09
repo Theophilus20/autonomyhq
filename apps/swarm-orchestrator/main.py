@@ -53,11 +53,14 @@ class Hub:
 
     async def broadcast(self, event: dict):
         try:
-            HISTORY["stream"].insert(0, event)
-            del HISTORY["stream"][300:]
-            _save_counter["n"] += 1
-            if _save_counter["n"] % 10 == 0:
-                _persist_history()
+            # Control signals are transient, never part of history/replay.
+            if event.get("type") not in ("SWARM_PAUSED", "SWARM_RESUMED", "HELLO",
+                                          "MEETING_STARTED", "MEETING_ENDED"):
+                HISTORY["stream"].insert(0, event)
+                del HISTORY["stream"][300:]
+                _save_counter["n"] += 1
+                if _save_counter["n"] % 10 == 0:
+                    _persist_history()
         except Exception:
             pass
         dead = []
@@ -298,7 +301,7 @@ async def _meeting(action: str, context: dict, reason: str):
         from agents.reasoning import feedback as agent_feedback
         reasonings = {e.get("role"): e.get("reasoning", "") for e in events
                       if e.get("type") == "AGENT_VOTE"}
-        for role in ("risk", "l&c", "treasury"):
+        async def _one(role):
             vote = next((s.get("vote", "APPROVE") for s in result.get("signatures", [])
                          if s.get("role") == role), "APPROVE")
             text = await asyncio.to_thread(agent_feedback, role, action, vote,
@@ -307,6 +310,8 @@ async def _meeting(action: str, context: dict, reason: str):
                   "proposalId": result.get("proposalId"), "vote": vote}
             _remember("feedback", fb)
             await hub.broadcast({"type": "AGENT_FEEDBACK", **fb})
+        # run the three retrospectives concurrently instead of one by one
+        await asyncio.gather(*[_one(r) for r in ("risk", "l&c", "treasury")])
     except Exception:
         pass
     await hub.broadcast({"type": "MEETING_ENDED", "action": action})
@@ -317,9 +322,9 @@ async def _auto_loop():
     """The agents decide when to sit down together: a jittered cadence with
     drifting market context, pausable via /swarm/stop."""
     import random
-    await asyncio.sleep(8)
-    lo = int(os.environ.get("AUTONOMY_MIN_SECONDS", "120"))
-    hi = int(os.environ.get("AUTONOMY_MAX_SECONDS", "240"))
+    await asyncio.sleep(5)
+    lo = int(os.environ.get("AUTONOMY_MIN_SECONDS", "45"))
+    hi = int(os.environ.get("AUTONOMY_MAX_SECONDS", "90"))
     while True:
         try:
             if RUNNING["autonomous"]:

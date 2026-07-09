@@ -120,7 +120,7 @@ td{padding:9px 8px;border-bottom:1px solid var(--mute);vertical-align:top}
         <div class="acard c3" id="card-treasury-agent-01"><div class="arow"><div class="aicon"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="12" cy="12" r="3.4"/><path d="M12 10.2v3.6M20.5 9.5v5"/></svg></div><div><div class="aname">Treasury</div><div class="arole">EXECUTION · SIGNING</div></div></div><div class="astat"><span class="sdot"></span><span class="st">idle · at desk</span></div><div class="avote vt">—</div></div>
       </div>
       <div class="mid">
-        <div class="office"><iframe id="officeFrame" src="about:blank"></iframe><div class="tag">AGENT OFFICE · LIVE</div><button class="btn g" style="position:absolute;top:7px;right:9px" onclick="fsOffice()" title="Fullscreen — use this to access the office Settings comfortably">⛶</button></div>
+        <div class="office"><iframe id="officeFrame" src="http://localhost:3100/"></iframe><div class="tag">AGENT OFFICE · LIVE</div><button class="btn g" style="position:absolute;top:7px;right:9px" onclick="fsOffice()" title="Fullscreen — use this to access the office Settings comfortably">⛶</button></div>
         <div class="panel"><div class="ptitle"><span>SWARM STREAM</span><span style="color:var(--amber)">● LIVE</span></div><div id="stream"></div></div>
       </div>
       <div class="metrics">
@@ -137,7 +137,7 @@ td{padding:9px 8px;border-bottom:1px solid var(--mute);vertical-align:top}
     <!-- ONCHAIN -->
     <div class="view" id="view-onchain">
       <div class="panel bigpanel">
-        <div class="bigcard" style="background:var(--card2);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><div style="font-weight:700;font-size:16px">AutonomyHQ Treasury — LIVE on Casper Testnet</div><div class="msub" style="margin-top:4px;word-break:break-all">package: hash-5f5bf585fe56fc504797a8f819aa7b2914d5ba95208a5c60a363ce57f1ccda58</div></div><a class="btn" style="text-decoration:none;color:var(--ink)" target="_blank" href="https://testnet.cspr.live/contract-package/5f5bf585fe56fc504797a8f819aa7b2914d5ba95208a5c60a363ce57f1ccda58">VIEW CONTRACT ↗</a></div><div class="msub" id="recStatus" style="margin-bottom:8px"></div><div class="note">Every row is a REAL swarm proposal (quorum + independently verified ed25519 signatures). Approved proposals are recorded ON-CHAIN: a real transaction calls execute_rebalance on the deployed contract. Click a recorded row to open the transaction on cspr.live.</div>
+        <div class="bigcard" style="background:var(--card2);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><div style="font-weight:700;font-size:16px">AutonomyHQ Treasury LIVE on Casper Testnet</div><div class="msub" style="margin-top:4px;word-break:break-all">package: hash-5f5bf585fe56fc504797a8f819aa7b2914d5ba95208a5c60a363ce57f1ccda58</div></div><a class="btn" style="text-decoration:none;color:var(--ink)" target="_blank" href="https://testnet.cspr.live/contract-package/5f5bf585fe56fc504797a8f819aa7b2914d5ba95208a5c60a363ce57f1ccda58">VIEW CONTRACT ↗</a></div><div class="msub" id="recStatus" style="margin-bottom:8px"></div><div class="note">Every row is a REAL swarm proposal (quorum + independently verified ed25519 signatures). Approved proposals are recorded ON-CHAIN: a real transaction calls execute_rebalance on the deployed contract. Click a recorded row to open the transaction on cspr.live.</div>
         <table><thead><tr><th>TIME</th><th>PROPOSAL</th><th>ACTION</th><th>QUORUM</th><th>SIGNATURES</th><th>PROOF (ed25519)</th><th>ON-CHAIN</th></tr></thead><tbody id="chainRows"><tr><td colspan="7" style="color:var(--mute)">no proposals yet — click NEW PROPOSAL on the dashboard</td></tr></tbody></table>
       </div>
     </div>
@@ -181,6 +181,7 @@ const SWARM=SWARM_HTTP, RECORDER=AHQ.RECORDER||"http://127.0.0.1:4030";
 const CONTRACT_PACKAGE="5f5bf585fe56fc504797a8f819aa7b2914d5ba95208a5c60a363ce57f1ccda58";
 const CSPR="https://testnet.cspr.live";
 const $=id=>document.getElementById(id);
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function toast(kind,text,ms){const t=document.createElement('div');t.className='toast '+(kind||'');t.textContent=text;
   $('toasts').appendChild(t);setTimeout(()=>t.remove(),ms||4200);}
 function showModal(title,html){$('mtitle').textContent=title;$('mbody').innerHTML=html;$('modalback').classList.add('on');}
@@ -207,7 +208,7 @@ function ts(){return new Date().toLocaleTimeString('en-GB')}
 function push(kind,text){const c={risk:'#2563EB','l&c':'#0E9F5D',treasury:'#FF6A1A',ok:'#0E9F5D',warn:'#D93636'}[kind]||'var(--dim)';
   const who=({system:'swarm',ok:'casper',warn:'swarm'})[kind]||kind;
   const d=document.createElement('div');d.className='msg';d.style.borderLeftColor=c;
-  d.innerHTML=`<span class="who" style="color:${c}">${who}</span> <span style="color:var(--mute);font-size:9px">${ts()}</span><span class="tx">${text}</span>`;
+  d.innerHTML=`<span class="who" style="color:${c}">${esc(who)}</span> <span style="color:var(--mute);font-size:9px">${ts()}</span><span class="tx">${esc(text)}</span>`;
   $('stream').appendChild(d);$('stream').scrollTop=1e9;while($('stream').children.length>60)$('stream').removeChild($('stream').firstChild);}
 function setQ(n,t){t=t||3;$('mq').textContent=n+'/'+t;$('hq').textContent=n+'/'+t;$('qfill').style.width=(n/t*100)+'%';}
 function setCard(id,txt,work,vote){const c=$('card-'+id);if(!c)return;c.querySelector('.st').textContent=txt;
@@ -234,8 +235,8 @@ function handle(e){switch(e.type){
  case 'AGENT_FEEDBACK':feedbacks.unshift({role:e.role,text:e.text,t:Date.now()});
    if(feedbacks.length>60)feedbacks.pop();persist();fbUnread++;updateFbBadge();
    push(e.role,'💬 '+e.text);break;
- case 'SWARM_PAUSED':autonomous=false;syncStopBtn();push('warn','Autonomous meetings PAUSED');break;
- case 'SWARM_RESUMED':autonomous=true;syncStopBtn();push('ok','Autonomous meetings RESUMED');break;
+ case 'SWARM_PAUSED':autonomous=false;syncStopBtn();push('warn','Agents stopped by operator');break;
+ case 'SWARM_RESUMED':autonomous=true;syncStopBtn();push('ok','Agents running autonomously');break;
  case 'PROPOSAL_FINALIZED':{proposals.unshift(e);if(proposals.length>50)proposals.pop();persist();
    if(e.quorumMet)recordOnChain(e.proposalId,e.approvals||3,false);
    renderChain();renderMiniChain();
@@ -259,7 +260,7 @@ async function recordOnChain(pid,approvals,force){try{
   const r=await fetch(RECORDER+'/chain/record',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({proposalId:pid,approvals,force})});
   const d=await r.json();
   if(d.deployHash){recordedMap[pid]=d.deployHash;persist();renderChain();
-    if(!d.cached){push('ok','⛓ recorded on Casper Testnet: '+d.deployHash.slice(0,12)+'…');toast('ok','⛓ REAL transaction sent — view it on cspr.live from the On-chain tab');}}
+    if(!d.cached){push('ok','⛓ recorded on Casper Testnet: '+d.deployHash.slice(0,12)+'…');toast('ok','⛓ ction sent — view it on cspr.live from the On-chain tab');}}
   else if(d.error&&force)toast('warn','recorder: '+d.error);
  }catch(e){if(force)toast('warn','recorder offline — check the RECORDER terminal');}}
 async function loadRecorded(){try{const r=await fetch(RECORDER+'/chain/recorded');const d=await r.json();recordedMap=Object.assign({},recordedMap,d.recorded||{});persist();}catch(e){}}
@@ -267,18 +268,20 @@ function updateFbBadge(){const b=$('fbBadge');b.style.display=fbUnread>0?'inline
 function renderFeedback(){const el=$('fbList');el.innerHTML='';
   if(!feedbacks.length){el.innerHTML='<div class="msub">no feedback yet — it appears after each meeting</div>';return;}
   const C={risk:'var(--card4)','l&c':'var(--card2)',treasury:'var(--card3)'};
-  feedbacks.forEach(f=>el.insertAdjacentHTML('beforeend',`<div class="bigcard" style="background:${C[f.role]||'var(--card)'};padding:11px 14px;margin-bottom:9px"><div style="display:flex;justify-content:space-between"><b style="text-transform:capitalize">${f.role}</b><span class="msub">${new Date(f.t).toLocaleTimeString('en-GB')}</span></div><div style="margin-top:5px;font-family:var(--mono);font-size:12px">${f.text}</div></div>`));}
+  feedbacks.forEach(f=>el.insertAdjacentHTML('beforeend',`<div class="bigcard" style="background:${C[f.role]||'var(--card)'};padding:11px 14px;margin-bottom:9px"><div style="display:flex;justify-content:space-between"><b style="text-transform:capitalize">${esc(f.role)}</b><span class="msub">${new Date(f.t).toLocaleTimeString('en-GB')}</span></div><div style="margin-top:5px;font-family:var(--mono);font-size:12px">${esc(f.text)}</div></div>`));}
 window.toggleAutonomy=async()=>{const target=!autonomous;
-  try{await fetch(SWARM+(target?'/swarm/start':'/swarm/stop'),{method:'POST'});
-    autonomous=target;syncStopBtn();
-    toast(target?'ok':'warn',target?'▶ Agents resumed — next sit-down within minutes':'⏸ Agents paused — no new deliberations (characters still stroll idly)');
-    if(!target)AG.forEach(a=>setCard(a.id,'paused',false,'—'));
-  }catch(e){toast('warn','swarm unreachable — is Terminal 1 running?');}};
+  autonomous=target;
+  var b=document.getElementById('stopBtn');
+  if(b){b.textContent=autonomous?'⏸ STOP AGENTS':'▶ START AGENTS';b.style.background=autonomous?'var(--card3)':'var(--card2)';}
+   toast(target?'ok':'warn',target?'▶ Agents running they will convene on their own':'⏸ Agents stopped no deliberations, spending, or transactions');
+  AG.forEach(a=>setCard(a.id,target?'idle · at desk':'stopped',false,'—'));
+  try{await fetch(SWARM+(target?'/swarm/start':'/swarm/stop'),{method:'POST'});}
+  catch(e){autonomous=!target;if(b){b.textContent=autonomous?'⏸ STOP AGENTS':'▶ START AGENTS';b.style.background=autonomous?'var(--card3)':'var(--card2)';}toast('warn','swarm unreachable — is Terminal 1 running?');}};
 function syncStopBtn(){const b=$('stopBtn');b.textContent=autonomous?'⏸ STOP AGENTS':'▶ START AGENTS';b.style.background=autonomous?'var(--card3)':'var(--card2)';}
 window.fsOffice=()=>{const el=document.querySelector('.office');if(document.fullscreenElement)document.exitFullscreen();else el.requestFullscreen();};
 function renderAgents(){const el=$('agentsBig');el.innerHTML='';
   AG.forEach((a,i)=>{const bg=['var(--card2)','var(--card3)','var(--card4)'][i];
-    el.insertAdjacentHTML('beforeend',`<div class="bigcard" style="background:${bg}"><div style="font-weight:700;font-size:18px">${a.name}</div><div class="msub" style="margin-top:3px">${a.role}</div><div class="reason"><b>last reasoning:</b> ${lastReason[a.id]||'— no deliberation yet —'}</div></div>`);});}
+    el.insertAdjacentHTML('beforeend',`<div class="bigcard" style="background:${bg}"><div style="font-weight:700;font-size:18px">${a.name}</div><div class="msub" style="margin-top:3px">${a.role}</div><div class="reason"><b>last reasoning:</b> ${esc(lastReason[a.id])||'— no deliberation yet —'}</div></div>`);});}
 /* REAL x402 */
 async function refreshLedger(){let led=ledgerCache;
  try{const r=await fetch(GATEWAY+'/x402/ledger');const d=await r.json();
@@ -309,7 +312,7 @@ window.clearFeedback=async()=>{try{await fetch(SWARM+'/swarm/feedback/clear',{me
 window.toggleSaved=async()=>{const w=$('savedWrap');if(w.style.display==='none'){try{const r=await fetch(SWARM+'/swarm/feedback/saved');const d=await r.json();const el=$('savedList');el.innerHTML='';
   if(!(d.saved||[]).length)el.innerHTML='<div class="msub">nothing saved yet</div>';
   const C={risk:'var(--card4)','l&c':'var(--card2)',treasury:'var(--card3)'};
-  (d.saved||[]).slice().reverse().forEach(f=>el.insertAdjacentHTML('beforeend',`<div class="bigcard" style="background:${C[f.role]||'var(--card)'};padding:10px 13px;margin-bottom:8px"><div style="display:flex;justify-content:space-between"><b style="text-transform:capitalize">${f.role} \u00b7 ${f.vote||''}</b><span class="msub">${new Date((f.ts||0)*1000).toLocaleString('en-GB')}</span></div><div style="margin-top:4px;font-family:var(--mono);font-size:12px">${f.text}</div></div>`));
+  (d.saved||[]).slice().reverse().forEach(f=>el.insertAdjacentHTML('beforeend',`<div class="bigcard" style="background:${C[f.role]||'var(--card)'};padding:10px 13px;margin-bottom:8px"><div style="display:flex;justify-content:space-between"><b style="text-transform:capitalize">${esc(f.role)} \u00b7 ${esc(f.vote||'')}</b><span class="msub">${new Date((f.ts||0)*1000).toLocaleString('en-GB')}</span></div><div style="margin-top:4px;font-family:var(--mono);font-size:12px">${esc(f.text)}</div></div>`));
   w.style.display='block';}catch(e){toast('warn','swarm unreachable');}}else w.style.display='none';};
 async function loadHistory(){try{const r=await fetch(SWARM+'/swarm/history');const d=await r.json();
   const srv=(d.proposals||[]);const have=new Set(srv.map(p=>p.proposalId));
@@ -318,12 +321,12 @@ async function loadHistory(){try{const r=await fetch(SWARM+'/swarm/history');con
   const fseen=new Set(sfb.map(f=>f.t+f.role));
   feedbacks=[...sfb,...feedbacks.filter(f=>!fseen.has(f.t+f.role))].slice(0,60);
   persist();
-  (d.stream||[]).slice(0,40).reverse().forEach(e=>{try{handle(e);}catch(_){}});
+  (d.stream||[]).filter(e=>!['SWARM_PAUSED','SWARM_RESUMED','HELLO','MEETING_STARTED','MEETING_ENDED'].includes(e.type)).slice(0,40).reverse().forEach(e=>{try{handle(e);}catch(_){}});
   renderChain();renderMiniChain();
  }catch(e){}}
 setInterval(()=>{loadRecorded().then(()=>{if(document.querySelector('#view-onchain.on'))renderChain();});},30000);
-if(AHQ.OFFICE&&location.hostname!=="localhost"&&location.hostname!=="127.0.0.1")document.getElementById("officeFrame").src=AHQ.OFFICE;else document.getElementById("officeFrame").src="http://localhost:3100/";
-connect();refreshLedger();loadRecorded().then(()=>loadHistory());syncStopBtn();fetch(SWARM+'/swarm/state').then(r=>r.json()).then(d=>{autonomous=!!d.running;syncStopBtn();}).catch(()=>{});
+if(AHQ.OFFICE)document.getElementById("officeFrame").src=AHQ.OFFICE;
+connect();refreshLedger();loadRecorded().then(()=>loadHistory());syncStopBtn();fetch(SWARM+'/swarm/state').then(r=>r.json()).then(d=>{autonomous=!!d.running;var b=document.getElementById('stopBtn');if(b){b.textContent=autonomous?'⏸ STOP AGENTS':'▶ START AGENTS';b.style.background=autonomous?'var(--card3)':'var(--card2)';}if(!autonomous){AG.forEach(a=>setCard(a.id,'stopped',false,'—'));push('warn','Agents are stopped — press START AGENTS to begin');}else{push('ok','Agents running autonomously');}}).catch(()=>{});
 </script>
 </body>
 </html>

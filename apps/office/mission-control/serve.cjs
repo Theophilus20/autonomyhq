@@ -15,17 +15,21 @@ http.createServer((req, res) => {
 
   if (u === "/") u = "/index.html";
 
-  // Resolve against ROOT, then confirm the result is still *inside* ROOT.
-  const requestedPath = path.normalize(path.join(ROOT, u));
-  const relative = path.relative(ROOT, requestedPath);
-  const isOutside = relative.startsWith("..") || path.isAbsolute(relative);
+  let requestedPath;
+  try {
+    requestedPath = fs.realpathSync(path.resolve(ROOT, "." + u));
+  } catch {
+    res.writeHead(404);
+    return res.end("nf");
+  }
 
-  if (isOutside) {
+  const rootWithSep = ROOT.endsWith(path.sep) ? ROOT : ROOT + path.sep;
+  if (requestedPath !== ROOT && !requestedPath.startsWith(rootWithSep)) {
     res.writeHead(403);
     return res.end("forbidden");
   }
 
-  if (!fs.existsSync(requestedPath) || !fs.statSync(requestedPath).isFile()) {
+  if (!fs.statSync(requestedPath).isFile()) {
     res.writeHead(404);
     return res.end("nf");
   }

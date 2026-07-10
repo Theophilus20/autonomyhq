@@ -1,19 +1,22 @@
-// Athanor ↔ Pixel Agents bridge.
+// Athanor ↔ Pixel Agents bridge (v3).
 //
 // Connects the Athanor swarm orchestrator (WebSocket, port 8080) to a running
-// Pixel Agents office server (hook endpoint, port 3100), translating on-chain
-// swarm events into the office's agent-activity hook events so the three
-// Athanor agents appear as characters in the furnished pixel office and act
-// out every deliberation.
+// Pixel Agents office server (hook endpoint, port 3100), translating swarm
+// events into the office's agent-activity hook events.
 //
-// Mapping:
-//   swarm PROPOSAL_OPENED   -> SessionStart for each agent (spawn if needed)
-//                              + Notification "walking to boardroom"
-//   swarm AGENT_VOTE        -> PreToolUse(tool=evaluate/verify/sign) then
-//                              PostToolUse, + Notification with the reasoning
-//   swarm QUORUM_RESULT      -> treasury PreToolUse(sign_on_casper) on approve,
-//                              or Notification "rejected" ; then Stop
-//   swarm PROPOSAL_FINALIZED -> Notification "signatures verified"
+// HOW PIXEL AGENTS MOVES CHARACTERS (this drives the whole mapping):
+//   - PreToolUse (a tool running)  -> character pathfinds to its DESK and sits
+//     down working. Tools ALWAYS mean "go sit at your seat".
+//   - Stop (turn ended)            -> character STANDS UP and wanders the
+//     office (idle wander AI). This is the ONLY hook that gets them off
+//     their chairs — there is no "go to room X" command in the hook API.
+//
+// Therefore:
+//   desk time  = looping PreToolUse cycles (sit and work)
+//   meeting    = Stop + bubbles (stand up, roam = "convening"), re-Stopped
+//                periodically so they keep mingling instead of drifting back
+//   signing    = treasury briefly returns to its desk (sign tool), then Stop
+//   paused     = Stop everything, no timers, frozen bubbles
 //
 // Run:  node athanor-bridge.mjs
 //   env: SWARM_WS (default ws://127.0.0.1:8080/ws/stream)
@@ -35,6 +38,7 @@ function discoverOffice() {
     const cfg = JSON.parse(fs.readFileSync(disc, "utf8"));
     if (cfg.port) port = cfg.port;
     if (cfg.token) token = cfg.token;
+    if (cfg.authToken) token = cfg.authToken;
   } catch (e) {
     console.warn("[bridge] no server.json yet; using defaults (hook auth may fail)");
   }
@@ -58,7 +62,6 @@ const NICE = {
 };
 const spawned = new Set();
 const activeTool = {};
-let officeRunning = false;
 
 async function hook(event) {
   try {
@@ -87,6 +90,19 @@ async function ensureSpawned(agentId) {
   console.log(`[bridge] spawned ${NICE[agentId]} in the office`);
 }
 
+// Close out whatever tool an agent has mid-flight (otherwise the character
+// stays in "active/at desk" state and bubbles linger).
+async function closeTool(agentId, fallbackName = "work_at_desk") {
+  const t = activeTool[agentId];
+  await hook({
+    hook_event_name: "PostToolUse",
+    session_id: SESS[agentId],
+    tool_name: t?.toolName || fallbackName,
+    tool_id: t?.toolId || `close-${Date.now()}`,
+  });
+  delete activeTool[agentId];
+}
+
 async function toolCycle(agentId, toolName, ms = 100) {
   const sid = SESS[agentId];
   const toolId = `athanor-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -100,8 +116,7 @@ async function toolCycle(agentId, toolName, ms = 100) {
   });
 
   await new Promise(r => setTimeout(r, ms));
-
-  // No PostToolUse
+  // No PostToolUse — bubble stays until closeTool()/next cycle.
 }
 
 async function say(agentId, text) {
@@ -113,23 +128,28 @@ async function say(agentId, text) {
   });
 }
 
-async function stop(agentId) {
+// Stop = "turn ended" = the character STANDS UP and wanders. This is our
+// only movement primitive for getting agents away from their desks.
+async function standUp(agentId) {
+  await closeTool(agentId);
   await hook({ hook_event_name: "Stop", session_id: SESS[agentId] });
 }
 
 
 const workTimers = {};
+let meetingTimer = null;
 let inMeeting = false;
 let swarmPaused = false;
+let lastQuorumMet = false;
 
 function startWork(id) {
   stopWork(id);
+  if (swarmPaused) return; // never restart desk work while operator stopped us
 
   const tick = async () => {
     if (inMeeting || swarmPaused) return;
 
     let tool = "work_at_desk";
-
     if (id === "risk-agent-01") tool = "evaluate_market_risk";
     else if (id === "lc-agent-01") tool = "verify_compliance";
     else if (id === "treasury-agent-01") tool = "compute_allocation";
@@ -147,172 +167,156 @@ function stopWork(id) {
   delete workTimers[id];
 }
 
-const TOOL_FOR = {
-  risk: "evaluate_market_risk",
-  "l&c": "verify_compliance",
-  treasury: "compute_allocation"
-};
-async function startOffice() {
-  officeRunning = true;
-
-  await Promise.all(
-    Object.keys(SESS).map(async id => {
-      await ensureSpawned(id);
-      startWork(id);
-    })
-  );
-
-  console.log("[bridge] office started");
+// During a meeting, characters are idle-wandering. The wander AI returns them
+// to their seats after a limited number of moves, so we re-Stop everyone every
+// few seconds to keep them up and mingling for the whole meeting.
+function startMeetingKeepalive() {
+  stopMeetingKeepalive();
+  meetingTimer = setInterval(async () => {
+    if (!inMeeting || swarmPaused) return;
+    for (const id of Object.keys(SESS)) {
+      try { await hook({ hook_event_name: "Stop", session_id: SESS[id] }); } catch {}
+    }
+  }, 6000);
+}
+function stopMeetingKeepalive() {
+  if (meetingTimer) { clearInterval(meetingTimer); meetingTimer = null; }
 }
 
-async function stopOffice() {
-  officeRunning = false;
-
-  await Promise.all(
-    Object.keys(SESS).map(async id => {
-      stopWork(id);
-      await stop(id);
-    })
-  );
-
-  console.log("[bridge] office stopped");
-}
 async function handle(evt) {
-  if (!officeRunning && evt.type !== "HELLO") return;
-
   switch (evt.type) {
     case "SWARM_PAUSED": {
-  swarmPaused = true;
-  inMeeting = false;
+      swarmPaused = true;
+      inMeeting = false;
+      stopMeetingKeepalive();
 
-  for (const id of Object.keys(SESS)) {
-    stopWork(id);
-    try { await stop(id); await say(id, "paused"); } catch {}
-  }
-  break;
-}
+      for (const id of Object.keys(SESS)) {
+        stopWork(id);
+        try {
+          await say(id, "⏸ paused by operator");
+          await standUp(id); // freeze in idle; no timers will restart work
+        } catch {}
+      }
+      console.log("[bridge] swarm paused — office frozen");
+      break;
+    }
 
-case "SWARM_RESUMED": {
-  swarmPaused = false;
-  for (const id of Object.keys(SESS)) startWork(id);
-  break;
-}
+    case "SWARM_RESUMED": {
+      swarmPaused = false;
+      for (const id of Object.keys(SESS)) {
+        try { await say(id, "▶ back to work"); } catch {}
+        startWork(id);
+      }
+      console.log("[bridge] swarm resumed — office back to work");
+      break;
+    }
 
-case "MEETING_STARTED": {
-  inMeeting = true;
+    case "MEETING_STARTED": {
+      if (swarmPaused) break;
+      inMeeting = true;
 
-  await Promise.all(Object.keys(SESS).map(async id => {
-    await ensureSpawned(id);
-    stopWork(id);
+      await Promise.all(Object.keys(SESS).map(async id => {
+        await ensureSpawned(id);
+        stopWork(id);
+        // Stand up and roam: in Pixel Agents, Stop is what gets a character
+        // OFF its chair (tools would send it right back to its desk).
+        await standUp(id);
+        await say(id, evt.reason || "🛋 convening in the living room");
+      }));
+      startMeetingKeepalive();
 
-    // Close out whatever desk tool was mid-flight.
-    await hook({
-      hook_event_name: "PostToolUse",
-      session_id: SESS[id],
-      tool_name: activeTool[id]?.toolName || "work_at_desk",
-      tool_id: activeTool[id]?.toolId || `meeting-${Date.now()}`
-    });
-    delete activeTool[id];
+      break;
+    }
 
-    // Actually send them to the meeting: desk work is only ever visible in
-    // the office because startWork()/toolCycle() fires a PreToolUse with a
-    // per-agent tool name. The meeting never did the equivalent, so the
-    // office had nothing to animate. This is the same mechanism, with a
-    // shared tool name so the three agents are recognized as converging on
-    // one activity/location instead of three separate desk jobs.
-    await toolCycle(id, "attend_living_room_meeting", 300);
+    case "MEETING_ENDED": {
+      inMeeting = false;
+      stopMeetingKeepalive();
 
-    // NOTE: we deliberately do NOT call stop(id) here anymore. Stop is the
-    // Claude-Code "session/turn ended" signal and was firing before the
-    // meeting notification even went out — almost certainly the reason the
-    // office showed nothing but a stopped/idle character instead of a
-    // meeting in progress. We only stop for real once the meeting ends.
-    await say(id, evt.reason || "Meeting time");
-  }));
+      await Promise.all(
+        Object.keys(SESS).map(async id => {
+          await say(id, "meeting adjourned — back to my desk");
+          startWork(id); // desk tool cycle = pathfind back to seat (no-op if paused)
+        })
+      );
 
-  break;
-}
+      // Execution happens AFTER the walk back: treasury sits down at its desk
+      // and only then carries out the approved decision on the system.
+      if (lastQuorumMet) {
+        lastQuorumMet = false;
+        setTimeout(async () => {
+          if (swarmPaused) return;
+          const id = "treasury-agent-01";
+          try {
+            await say(id, "⛓ executing approved rebalance — signing on Casper");
+            await toolCycle(id, "sign_and_broadcast_casper", 2600);
+            await closeTool(id, "sign_and_broadcast_casper");
+            await say(id, "Broadcast accepted ✓ on Casper Testnet");
+          } catch {}
+        }, 6000); // give the walk-back animation time to complete
+      }
 
-case "MEETING_ENDED": {
-  inMeeting = false;
+      break;
+    }
 
-  await Promise.all(
-    Object.keys(SESS).map(async id => {
-      await stop(id);
-      startWork(id);
-    })
-  );
-
-  break;
-}
     case "HELLO": {
-  console.log("[bridge] connected to swarm; office ready");
+      console.log("[bridge] connected to swarm; office ready");
+      for (const id of Object.keys(SESS)) {
+        await ensureSpawned(id);
+        startWork(id);
+      }
+      break;
+    }
 
-  for (const id of Object.keys(SESS)) {
-    await ensureSpawned(id);
-    startWork(id);
-  }
+    case "PROPOSAL_OPENED": {
+      if (swarmPaused) break;
+      await Promise.all(
+        Object.keys(SESS).map(async id => {
+          await ensureSpawned(id);
+          await say(id, `Proposal ${evt.action} on the table`);
+        })
+      );
+      break;
+    }
 
-  break;
-}
+    case "AGENT_THINKING": {
+      const id = evt.agentId;
+      if (!SESS[id] || swarmPaused) break;
+      await ensureSpawned(id);
+      // Bubble only — NO tool use here, or the character would leave the
+      // meeting and walk back to its desk to "work".
+      await say(id, "🧠 thinking…");
+      break;
+    }
 
-case "PROPOSAL_OPENED": {
-  await Promise.all(
-  Object.keys(SESS).map(async id => {
-    await ensureSpawned(id);
-    await say(id, `Proposal ${evt.action} — heading to the boardroom`);
-  })
-);
-  break;
-}
+    case "AGENT_VOTE": {
+      const id = evt.agentId;
+      if (!SESS[id]) break;
+      await ensureSpawned(id);
+      await say(id, `${evt.vote}: ${evt.reasoning || ""}`);
+      break;
+    }
 
-case "AGENT_THINKING": {
-  const id = evt.agentId;
-  if (!SESS[id]) break;
+    case "QUORUM_RESULT": {
+      lastQuorumMet = !!evt.quorumMet;
+      if (evt.quorumMet) {
+        await say("treasury-agent-01",
+          `Quorum ${evt.approvals}/${evt.required} — approved, I'll sign at my desk after the meeting`);
+      } else {
+        await say("treasury-agent-01", `Quorum ${evt.approvals}/${evt.required} — rejected, no execution`);
+      }
+      break;
+    }
 
-  await ensureSpawned(id);
-  await say(id, "🧠 thinking…");
-  break;
-}
-
-case "AGENT_VOTE": {
-  const id = evt.agentId;
-  if (!SESS[id]) break;
-
-  await ensureSpawned(id);
-  await say(id, `${evt.vote}: ${evt.reasoning || ""}`);
-  break;
-}
-
-case "QUORUM_RESULT": {
-  if (evt.quorumMet) {
-    const id = "treasury-agent-01";
-
-    await say(id, `Quorum ${evt.approvals}/${evt.required} — signing on Casper`);
-    await toolCycle(id, "sign_and_broadcast_casper", 2400);
-    await say(id, "Broadcast accepted ✓ on Casper Testnet");
-  } else {
-    await say("treasury-agent-01", `Quorum ${evt.approvals}/${evt.required} — rejected, no execution`);
-  }
-
-  for (const id of Object.keys(SESS)) {
-  stop(id);
-  startWork(id);
-}
-
-  break;
-}
-
-case "PROPOSAL_FINALIZED": {
-  if (evt.verified) await say("treasury-agent-01", "Signatures verified ✓");
-  break;
-}
+    case "PROPOSAL_FINALIZED": {
+      if (evt.verified) await say("treasury-agent-01", "Signatures verified ✓");
+      break;
+    }
   }
 }
 
 // Enable "watch all sessions" on the office so our external (unknown session_id)
 // agents are allowed to spawn. Without this the office silently ignores them.
-// Make external agents visible — belt and braces:
+// Belt and braces:
 // 1) Patch ~/.pixel-agents/config.json so the setting survives restarts.
 // 2) Send setWatchAllSessions live over the office WS (correct path: /ws).
 function enableWatchAll() {
@@ -351,7 +355,7 @@ function connect() {
   ws.on("error", (e) => console.error("[bridge] swarm error:", e.message));
 }
 
-console.log("AutonomyHQ bridge starting");
+console.log("AutonomyHQ bridge starting (v3 — Stop-based meetings)");
 console.log(`  swarm:  ${SWARM_WS}`);
 console.log(`  office: ${OFFICE_HOOK}`);
 connect();

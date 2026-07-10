@@ -97,7 +97,7 @@ td{padding:9px 8px;border-bottom:1px solid var(--mute);vertical-align:top}
   .spacer{display:none}
   /* first row: logo …… toggle, socials (socials at the far right) */
   .side>.toggle{margin-left:auto;order:4}
-  #socials{order:5;padding:0 !important;margin-left:auto}
+  #socials{order:5;padding:0 !important}
   /* nav on its own scrollable row, with edge fades + chevrons as scroll hints */
   .navwrap{display:block;position:relative;order:10;flex:1 1 100%;min-width:0}
   .nav{flex-direction:row;flex-wrap:nowrap;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 30px 5px 2px;scrollbar-width:none}
@@ -265,6 +265,7 @@ $('nav').addEventListener('click',e=>{const a=e.target.closest('a');if(!a)return
   if(a.dataset.v==='x402')refreshLedger();if(a.dataset.v==='onchain'){loadRecorded().then(()=>renderChain());fetch(RECORDER+'/chain/recorded').then(()=>$('recStatus').innerHTML='recorder <span class="ok">● ONLINE</span>').catch(()=>$('recStatus').innerHTML='recorder <span style="color:var(--red)">● OFFLINE — start Terminal RECORDER</span>');}if(a.dataset.v==='agents')renderAgents();if(a.dataset.v==='feedback'){fbUnread=0;updateFbBadge();renderFeedback();}});
 /* state */
 let approvals=0,proposals=[],lastReason={},feedbacks=[],fbUnread=0,recordedMap={},autonomous=true,ledgerCache=[];
+let pendingExec=false,walkT=null,endT=null,execT=null;
 try{const c=JSON.parse(localStorage.getItem('ahq')||'{}');
   proposals=c.proposals||[];recordedMap=c.recordedMap||{};
   feedbacks=c.feedbacks||[];ledgerCache=c.ledger||[];}catch(e){}
@@ -286,20 +287,34 @@ function setCard(id,txt,work,vote){const c=$('card-'+id);if(!c)return;c.querySel
 function handle(e){switch(e.type){
  case 'HELLO':$('conn').textContent='SWARM · LIVE';break;
  case 'PROPOSAL_OPENED':approvals=0;setQ(0);$('mqs').textContent='deliberating';
-   AG.forEach(a=>setCard(a.id,'walking to boardroom',true,'…'));
+   AG.forEach(a=>setCard(a.id,'🛋 deliberating · living room',true,'…'));
    push('system',`Proposal ${e.action} · ${e.payload?.targetAsset||''}`);break;
+ case 'AGENT_THINKING':{const m={risk:'risk-agent-01','l&c':'lc-agent-01',treasury:'treasury-agent-01'};
+   const id=e.agentId||m[e.role];setCard(id,'🧠 thinking…',true);break;}
  case 'AGENT_VOTE':{const m={risk:'risk-agent-01','l&c':'lc-agent-01',treasury:'treasury-agent-01'};
    const id=e.agentId||m[e.role];lastReason[id]=e.reasoning||'';
-   setCard(id,e.vote==='APPROVE'?'evaluated · approve':'evaluated · reject',false,e.vote);
+   setCard(id,e.vote==='APPROVE'?'🗳 voted approve · in meeting':'🗳 voted reject · in meeting',true,e.vote);
    if(e.vote==='APPROVE'){approvals++;setQ(approvals);}push(e.role,`${e.vote} — ${e.reasoning||''}`);break;}
- case 'QUORUM_RESULT':setQ(e.approvals,e.required);
-   if(e.quorumMet){$('mqs').textContent='approved';setCard('treasury-agent-01','signing…',true,'APPROVE');
-     push('ok',`Quorum ${e.approvals}/${e.required} — signing`);}else{$('mqs').textContent='rejected';push('warn',`Quorum ${e.approvals}/${e.required} — rejected`);}break;
+ case 'QUORUM_RESULT':setQ(e.approvals,e.required);pendingExec=!!e.quorumMet;
+   if(e.quorumMet){$('mqs').textContent='approved';
+     push('ok',`Quorum ${e.approvals}/${e.required} — approved · treasury will sign after the meeting`);}
+   else{$('mqs').textContent='rejected';push('warn',`Quorum ${e.approvals}/${e.required} — rejected`);}break;
  case 'DATA_DECISION':push(e.buy?'risk':'system',(e.llm?'\u{1F9E0} ':'')+(e.buy?'DECIDED to buy fresh data \u2014 ':'skipped data purchase \u2014 ')+e.reason);break;
  case 'DATA_PURCHASED':push('ok',`\u{1F4B0} agents bought RWA data via x402 \u00b7 $${(e.valuationUSD||0).toLocaleString()} valuation \u00b7 ${e.onChain?'settled ON-CHAIN':'settled'} ${String(e.txHash||'').slice(0,10)}\u2026`);refreshLedger();break;
  case 'MEETING_STARTED':push('system','🛋 '+(e.reason||'Agents convened in the living room'));
-   AG.forEach(a=>setCard(a.id,'🧠 thinking · living room',true,'…'));break;
- case 'MEETING_ENDED':AG.forEach(a=>setCard(a.id,'idle · at desk',false));break;
+   clearTimeout(walkT);clearTimeout(endT);clearTimeout(execT);
+   AG.forEach(a=>setCard(a.id,'🚶 walking to living room',true,'…'));
+   walkT=setTimeout(()=>AG.forEach(a=>setCard(a.id,'🛋 in meeting · living room',true)),7000);break;
+ case 'MEETING_ENDED':clearTimeout(walkT);clearTimeout(endT);clearTimeout(execT);
+   AG.forEach(a=>setCard(a.id,'🚶 walking back to desk',true));
+   endT=setTimeout(()=>{
+     if(pendingExec){
+       setCard('risk-agent-01','idle · at desk',false);setCard('lc-agent-01','idle · at desk',false);
+       setCard('treasury-agent-01','⛓ executing · signing on Casper',true);
+       push('ok','treasury back at desk — executing the approved rebalance');
+       execT=setTimeout(()=>setCard('treasury-agent-01','idle · at desk',false),6000);
+     }else AG.forEach(a=>setCard(a.id,'idle · at desk',false));
+     pendingExec=false;},7000);break;
  case 'AGENT_FEEDBACK':feedbacks.unshift({role:e.role,text:e.text,t:Date.now()});
    if(feedbacks.length>60)feedbacks.pop();persist();fbUnread++;updateFbBadge();
    push(e.role,'💬 '+e.text);break;
@@ -309,7 +324,7 @@ function handle(e){switch(e.type){
    if(e.quorumMet)recordOnChain(e.proposalId,e.approvals||3,false);
    renderChain();renderMiniChain();
    if(e.verified)push('ok',`proposal ${String(e.proposalId).slice(0,8)}… signed & verified ✓`);
-   AG.forEach(a=>setCard(a.id,'idle · at desk',false));break;}
+   break;}
 }}
 function goOnchain(){document.querySelector('#nav a[data-v="onchain"]').click();}
 function renderMiniChain(){const l=$('txlist');l.innerHTML='';proposals.slice(0,2).forEach(p=>{
@@ -390,6 +405,8 @@ async function loadHistory(){try{const r=await fetch(SWARM+'/swarm/history');con
   feedbacks=[...sfb,...feedbacks.filter(f=>!fseen.has(f.t+f.role))].slice(0,60);
   persist();
   (d.stream||[]).filter(e=>!['SWARM_PAUSED','SWARM_RESUMED','HELLO','MEETING_STARTED','MEETING_ENDED'].includes(e.type)).slice(0,40).reverse().forEach(e=>{try{handle(e);}catch(_){}});
+  clearTimeout(walkT);clearTimeout(endT);clearTimeout(execT);pendingExec=false;
+  AG.forEach(a=>setCard(a.id,'idle · at desk',false));
   renderChain();renderMiniChain();
  }catch(e){}}
 setInterval(()=>{loadRecorded().then(()=>{if(document.querySelector('#view-onchain.on'))renderChain();});},30000);
